@@ -2,3 +2,10 @@
 __pycache__/
 *.py[cod]
 *$py.class
+
+# C++
+# (through VS console)
+*.obj
+*.exe
+# (g++ or whatever)
+*.bin
