@@ -4,13 +4,38 @@
 <head>
   <title>AdventofCode</title>
 
+  <script type="text/javascript">
+    function showday() {
+      var daysel = document.getElementById("daysel");
+
+      for (var c = 0; c < daysel.children.length; c++) {
+        divname = daysel.children[c].value;
+        div = document.getElementById(divname);
+        if (daysel.value == divname) {
+          div.style.display = "block";
+        } else {
+          div.style.display = "none";
+        }
+      }
+    }
+  </script>
+
   <script src="./Day01.js" type="text/javascript"></script>
   <script src="./Day02.js" type="text/javascript"></script>
   <script src="./Day03.js" type="text/javascript"></script>
 </head>
 
 <body>
-  <div id="Day01">
+  <select name="day" id="daysel" onchange="showday()">
+    <option value="Day01">Day 1</option>
+    <option value="Day02">Day 2</option>
+    <option value="Day03">Day 3</option>
+  </select>
+
+  <hr>
+
+  <div id="Day01" style="display: block">
+    <h3>Day 1</h3>
     Input:<br>
     <textarea name="input" rows="8" cols="80" id="Day01_id"></textarea><br>
     <button onclick="Day01()">Go!</button><br>
@@ -20,8 +45,8 @@
     Part 2:<br>
     <p id="Day01_p2"></p>
   </div>
-  <hr>
-  <div id="Day02">
+  <div id="Day02" style="display: none">
+    <h3>Day 2</h3>
     Input:<br>
     <textarea name="input" rows="8" cols="80" id="Day02_id"></textarea><br>
     <button onclick="Day02()">Go!</button><br>
@@ -31,8 +56,8 @@
     Part 2:<br>
     <p id="Day02_p2"></p>
   </div>
-  <hr>
-  <div id="Day03">
+  <div id="Day03" style="display: none">
+    <h3>Day 3</h3>
     Input:<br>
     <textarea name="input" rows="8" cols="80" id="Day03_id"></textarea><br>
     <button onclick="Day03()">Go!</button><br>
