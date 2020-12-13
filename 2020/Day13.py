@@ -1,3 +1,6 @@
+import numpy
+
+
 TIME = int(input("> "))
 BUSES = input("> ").split(",")
 
@@ -15,3 +18,18 @@ for b in BUSES:
             top = (i, diffs[i])
 
 print(top[0], top[1], "->", top[0] * top[1])
+
+
+lcm = numpy.int64(1)
+count = numpy.int64(0)
+for i, v in enumerate(BUSES):
+    try:
+        vi = int(v)
+    except ValueError:
+        continue
+    else:
+        while count % vi != (-i) % vi:
+            count += lcm
+        lcm = numpy.lcm(lcm, vi)
+
+print(count)
