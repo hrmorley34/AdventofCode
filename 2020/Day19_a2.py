@@ -40,8 +40,7 @@ def reify(ruled: dict, rule: int = 0, depth: int = 0) -> str:
     return "(?:" + "|".join(exprs) + ")"
 
 
-MODRULES2 = """\
-8: 42 | 42 8
+MODRULES2 = """8: 42 | 42 8
 11: 42 31 | 42 11 31""".splitlines()
 
 if __name__ == "__main__":
