@@ -1,8 +1,12 @@
-from typing import Union, Any
+from collections.abc import MutableSequence
+from typing import TypeVar, Union, overload
 
 
-class CircularList:
-    def __init__(self, values: list):
+T = TypeVar("T")
+
+
+class CircularList(MutableSequence[T]):
+    def __init__(self, values: list[T]):
         self._values = list(values)
         self.current = 0
 
@@ -36,7 +40,12 @@ class CircularList:
                     else:
                         p.pretty(item)
 
-    def __getitem__(self, i: Union[int, slice]):
+    @overload
+    def __getitem__(self, i: int) -> T: ...
+    @overload
+    def __getitem__(self, i: slice) -> list[T]: ...
+
+    def __getitem__(self, i: Union[int, slice]) -> T | list[T]:
         if isinstance(i, slice):
             return [
                 self._values[x % len(self._values)]
@@ -47,38 +56,46 @@ class CircularList:
         else:
             raise ValueError
 
-    def __setitem__(self, i: int, v: Any):
+    def __setitem__(self, i: int, v: T):
         if isinstance(i, int):
             self._values[i % len(self._values)] = v
         else:
             raise ValueError
 
-    def __contains__(self, v: Any):
+    def __delitem__(self, i: int):
+        if isinstance(i, int):
+            del self._values[i % len(self._values)]
+        else:
+            raise ValueError
+
+    def __contains__(self, v: T):
         return v in self._values
 
     def __len__(self):
         return len(self._values)
 
-    def pop(self, i: int):
+    def pop(self, i: int) -> T:
         index = i % len(self._values)
         if index <= self.current:
             self.current -= 1  # calc mod later
         # print(".pop({}) [{}]".format(i, self.current))
         return self._values.pop(index)
 
-    def insert(self, i: int, v: Any):
+    def insert(self, i: int, v: T):
         index = i % len(self._values)
         if index <= self.current:
             self.current += 1  # calc mod later
         # print(".insert({}, {}) [{}]".format(i, v, self.current))
         return self._values.insert(index, v)
 
-    def remove(self, v: Any):
+    def remove(self, v: T):
         return self.pop(self.index(v))  # correctly modifies self.current
 
-    def index(self, v: Any):
+    def index(self, v: T):
         return self._values.index(v)
 
+
+class Day23L(CircularList[int]):
     def perform_move(self, length: int = 3):
         " Day23 function "
         maximum = max(self._values)
@@ -97,20 +114,20 @@ class CircularList:
 
         self.current = (self.current + 1) % len(self)
 
-    def get_after(self, id: int = 1, limit: int = None):
+    def get_after(self, id: int = 1, limit: int = None) -> list[int]:
         if limit is None:
             limit = len(self) - 1
         index1 = self.index(id)
         return self[index1 + 1 : index1 + limit + 1]
 
-    def get_label(self):
+    def get_label(self) -> str:
         return "".join(map(str, self.get_after(1, limit=None)))
 
 
 if __name__ == "__main__":
     ilist = list(map(int, input("> ")))
 
-    c = CircularList(ilist)
+    c = Day23L(ilist)
     for x in range(100):
         c.perform_move()
 
