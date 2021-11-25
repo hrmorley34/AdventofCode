@@ -133,3 +133,13 @@ if __name__ == "__main__":
 
     print(c.get_label())
 
+    # Slow, but how else?
+    c2 = Day23L(ilist + list(range(max(ilist) + 1, 1000000 + 1)))
+    for x in range(10000000):
+        c2.perform_move()
+        if x % 10 ** 4 == 0:
+            print("{: 10}".format(x), end="\r")
+    print("{: 10}".format(x))
+
+    a, b = c2.get_after(limit=2)
+    print(a * b)
