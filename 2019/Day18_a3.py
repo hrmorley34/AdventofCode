@@ -74,14 +74,15 @@ def look_for_connections(
 
 def construct_nodes(maze: Mapping[complex, str]):
     nodes: dict[complex, Node] = dict()
-    entrance: Node | None = None
+    entrances: set[Node] = set()
     keys: set[Key] = set()
 
     for key, value in maze.items():
         if value == "#":
             continue  # wall
         elif value == "@":
-            nodes[key] = entrance = Node()
+            nodes[key] = Node()
+            entrances.add(nodes[key])
             created = True
         elif value in KEYS:
             nodes[key] = n = KeyNode(value)
@@ -115,8 +116,7 @@ def construct_nodes(maze: Mapping[complex, str]):
         if created:
             look_for_connections(nodes, key, neighbours & SEARCH_DIRECTIONS)
 
-    assert entrance is not None
-    return entrance, nodes, keys
+    return entrances, nodes, keys
 
 
 def _find_direct(startnode: Node) -> dict[Node, int]:
@@ -171,14 +171,14 @@ class Runner:
     visited_nodes: set[Node]
     keys: set[Key]
     distance: int
-    route: str
+    # route: str
 
     def __init__(self, start: Node) -> None:
         self.current_node = start
         self.visited_nodes = {start}
         self.keys = set()
         self.distance = 0
-        self.route = "@"
+        # self.route = "@"
 
     def __hash__(self) -> int:
         return id(self)
@@ -195,7 +195,7 @@ class Runner:
         r.visited_nodes.update(self.visited_nodes)
         r.keys.update(self.keys)
         r.distance = self.distance
-        r.route = self.route
+        # r.route = self.route
         return r
 
     def go_to(self, node: Node, distance: int):
@@ -208,7 +208,7 @@ class Runner:
         if isinstance(node, KeyNode):
             if node.key not in self.keys:
                 self.keys.add(node.key)
-                self.route += node.key
+                # self.route += node.key
                 self.visited_nodes.clear()  # reset visited nodes as, having got the key, one may need to go back on oneself
 
         self.visited_nodes.add(node)
@@ -250,16 +250,105 @@ class Runner:
         return NotImplemented
 
 
+class MultiRunner:
+    current_node: list[Node]
+    visited_nodes: list[set[Node]]
+    keys: set[Key]
+    distance: int
+    # route: list[str]
+
+    def __init__(self, *starts: Node) -> None:
+        self.current_node = list(starts)
+        self.visited_nodes = [{start} for start in self.current_node]
+        self.keys = set()
+        self.distance = 0
+        # self.route = ["@" for _ in self.current_node]
+
+    def __hash__(self) -> int:
+        return id(self)
+
+    def __repr__(self) -> str:
+        return (
+            f"{type(self).__name__}({self.distance}, {self.current_node} conn, "
+            + ("".join(self.keys) if self.keys else "-")
+            + ")"
+        )
+
+    def copy(self) -> MultiRunner:
+        r = type(self)(*self.current_node)
+        for s2, s1 in zip(r.visited_nodes, self.visited_nodes):
+            s2.update(s1)
+        r.keys.update(self.keys)
+        r.distance = self.distance
+        # r.route = self.route
+        return r
+
+    def go_to(self, index: int, node: Node, distance: int):
+        if isinstance(node, DoorNode) and node.key not in self.keys:
+            raise ValueError
+
+        self.current_node[index] = node
+        self.distance += distance
+
+        if isinstance(node, KeyNode):
+            if node.key not in self.keys:
+                self.keys.add(node.key)
+                # self.route[index] += node.key
+                self.visited_nodes[index].clear()
+                # reset visited nodes as, having got the key, one may need to go back on oneself
+
+        self.visited_nodes[index].add(node)
+
+    def flood(self):
+        rs: set[MultiRunner] = set()
+        for index, node in enumerate(self.current_node):
+            for conn, dist in node.connections.items():
+                if conn in self.visited_nodes:
+                    continue
+                if isinstance(conn, DoorNode) and conn.key not in self.keys:
+                    continue  # can't go there; no key for it
+
+                r = self.copy()
+                rs.add(r)
+                r.go_to(index, conn, dist)
+        return rs
+
+    def _get_metric(self):
+        return (self.distance, -len(self.keys))
+
+    def __lt__(self, obj: Any):
+        if isinstance(obj, MultiRunner):
+            return self._get_metric() < obj._get_metric()
+        return NotImplemented
+
+    def __le__(self, obj: Any):
+        if isinstance(obj, MultiRunner):
+            return self._get_metric() <= obj._get_metric()
+        return NotImplemented
+
+    def __gt__(self, obj: Any):
+        if isinstance(obj, MultiRunner):
+            return self._get_metric() > obj._get_metric()
+        return NotImplemented
+
+    def __ge__(self, obj: Any):
+        if isinstance(obj, MultiRunner):
+            return self._get_metric() >= obj._get_metric()
+        return NotImplemented
+
+
 if __name__ == "__main__":
     PUZZLE_INPUT = puzzle_input().strip().splitlines(False)
     # PUZZLE_INPUT = clipboard.strip().splitlines(False)
+
+    # === PART 1 ===
     MAZE = {
         x + y * 1j: c
         for (y, line) in enumerate(PUZZLE_INPUT)
         for (x, c) in enumerate(line)
     }
     start, nodes, keys = construct_nodes(MAZE)
-    start, nodes = increase_directness(start, nodes)
+    start, nodes = increase_directness(next(iter(start)), nodes)
 
     rs: PriorityQueue[Runner] = PriorityQueue()
     rs_done: set[tuple[Node, frozenset[Key]]] = set()
@@ -297,4 +386,49 @@ if __name__ == "__main__":
         # if iteration % 1000_000 == 0:
         #     print(iteration)
         #     break
-    print(best.distance)
+    print("Part 1:", best.distance)
+
+    # === PART 2 ===
+    centre_y, centre_x = next(
+        (linei, line.index("@"))
+        for linei, line in enumerate(PUZZLE_INPUT)
+        if "@" in line
+    )
+    NEW_CENTRE = ["@#@", "###", "@#@"]
+    PART_2_INPUT = PUZZLE_INPUT.copy()
+    for yoff, newline in zip(range(-1, 2), NEW_CENTRE):
+        PART_2_INPUT[centre_y + yoff] = (
+            PART_2_INPUT[centre_y + yoff][: centre_x - 1]
+            + newline
+            + PART_2_INPUT[centre_y + yoff][centre_x + 2 :]
+        )
+
+    MAZE2 = {
+        x + y * 1j: c
+        for (y, line) in enumerate(PART_2_INPUT)
+        for (x, c) in enumerate(line)
+    }
+    starts, nodes, keys = construct_nodes(MAZE2)
+    starts = [increase_directness(start, nodes)[0] for start in starts]
+
+    rs2: PriorityQueue[MultiRunner] = PriorityQueue()
+    rs_done2: set[tuple[tuple[Node, ...], frozenset[Key]]] = set()
+    rs2.put(MultiRunner(*starts))
+    best = None
+
+    while not rs2.empty():
+        r = rs2.get()
+
+        if (tuple(r.current_node), frozenset(r.keys)) in rs_done2:
+            continue
+        rs_done2.add((tuple(r.current_node), frozenset(r.keys)))
+
+        if r.keys == keys:
+            best = r
+            break
+        for i in r.flood():
+            if (tuple(i.current_node), frozenset(i.keys)) in rs_done2:
+                continue
+
+            rs2.put(i)
+    print("Part 2:", best.distance)
