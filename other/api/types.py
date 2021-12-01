@@ -4,6 +4,8 @@ from __future__ import annotations
 __all__ = [
     "UnixTimestamp",
     "UserId",
+    "AnyUserId",
+    "to_user_id",
     "Event",
     "AnyEvent",
     "to_event",
@@ -31,7 +33,14 @@ from typing import Dict, Literal, NewType, Optional, Sequence, TypedDict, Union,
 
 
 UnixTimestamp = NewType("UnixTimestamp", int)
+
 UserId = NewType("UserId", str)
+AnyUserId = Union[UserId, str, int]
+
+
+def to_user_id(user_id: AnyUserId) -> UserId:
+    return UserId(str(user_id))
+
 
 Event = NewType("Event", str)
 AnyEvent = Union[Event, str, int]

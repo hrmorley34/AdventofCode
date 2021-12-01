@@ -22,7 +22,9 @@ from .types import (
     ALL_DAYS,
     ALL_PARTS,
     AnyDay,
+    AnyEvent,
     AnyPart,
+    AnyUserId,
     ApiLeaderboard,
     ApiLeaderboardDayDict,
     ApiLeaderboardUser,
@@ -32,9 +34,15 @@ from .types import (
     UserId,
     to_day,
     to_day_int,
+    to_event,
     to_optional_part,
     to_part,
+    to_user_id,
 )
+
+
+class Missing(Exception):
+    pass
 
 
 class LeaderboardYear:
@@ -45,18 +53,18 @@ class LeaderboardYear:
     event: Event
     json: Optional[ApiLeaderboard] = None
 
-    def __new__(cls, id: UserId, event: Event):
-        id = UserId(str(id).rjust(6, "0"))
-        event = Event(str(event))
+    def __new__(cls, id: AnyUserId, event: AnyEvent):
+        id = to_user_id(id)
+        event = to_event(event)
         if (id, event) in cls._YEAROBJECTS:
             return cls._YEAROBJECTS[id, event]
         o = super().__new__(cls)
         cls._YEAROBJECTS[id, event] = o
         return o
 
-    def __init__(self, id: UserId, year: Event):
-        self.id = UserId(str(id).rjust(6, "0"))
-        self.event = Event(str(year))
+    def __init__(self, id: AnyUserId, event: AnyEvent):
+        self.id = to_user_id(id)
+        self.event = to_event(event)
 
     def __hash__(self):
         return hash((self.id, self.event))
@@ -80,9 +88,9 @@ class LeaderboardYear:
         return self.id
 
     @property
-    def members(self) -> Optional[Dict[UserId, LeaderboardYearMember]]:
+    def members(self) -> Dict[UserId, LeaderboardYearMember]:
         if self.json is None:
-            return None
+            raise Missing
         return {
             json["id"]: LeaderboardYearMember(self, json["id"], json)
             for json in self.json["members"].values()
@@ -98,9 +106,13 @@ class LeaderboardYearMember:
     json: Optional[ApiLeaderboardUser] = None
 
     def __new__(
-        cls, leaderboardyear: LeaderboardYear, id: UserId, *args: Any, **kwargs: Any
+        cls,
+        leaderboardyear: LeaderboardYear,
+        id: AnyUserId,
+        *args: Any,
+        **kwargs: Any,
     ):
-        id = UserId(str(id).rjust(6, "0"))
+        id = to_user_id(id)
         if (leaderboardyear, id) in cls._YEARMEMBEROBJECTS:
             return cls._YEARMEMBEROBJECTS[leaderboardyear, id]
         o = super().__new__(cls)
@@ -110,10 +122,10 @@ class LeaderboardYearMember:
     def __init__(
         self,
         leaderboardyear: LeaderboardYear,
-        id: UserId,
+        id: AnyUserId,
         json: Optional[ApiLeaderboardUser] = None,
     ):
-        self.id = id
+        self.id = to_user_id(id)
         self.leaderboardyear = leaderboardyear
         self.json = json
 
@@ -136,35 +148,39 @@ class LeaderboardYearMember:
     @property
     def name(self) -> Optional[str]:
         if self.json is None:
-            return None
+            raise Missing
         return self.json["name"]
+
+    @property
+    def full_name(self) -> str:
+        return self.name or f"(anonymous user #{self.id})"
 
     @property
     def owner(self) -> bool:
         return self.id == self.leaderboardyear.id
 
     @property
-    def stars(self) -> Optional[int]:
+    def stars(self) -> int:
         if self.json is None:
-            return None
+            raise Missing
         return self.json["stars"]
 
     @property
-    def local_score(self) -> Optional[int]:
+    def local_score(self) -> int:
         if self.json is None:
-            return None
+            raise Missing
         return self.json["local_score"]
 
     @property
-    def global_score(self) -> Optional[int]:
+    def global_score(self) -> int:
         if self.json is None:
-            return None
+            raise Missing
         return self.json["global_score"]
 
     @property
-    def days(self) -> Optional[MemberDays]:
+    def days(self) -> MemberDays:
         if self.json is None:
-            return None
+            raise Missing
         return MemberDays(
             self.id, self.leaderboardyear.event, self.json["completion_day_level"]
         )
@@ -179,10 +195,13 @@ class MemberDays:
     json: Optional[ApiLeaderboardDayDict] = None
 
     def __init__(
-        self, id: UserId, year: Event, json: Optional[ApiLeaderboardDayDict] = None
+        self,
+        id: AnyUserId,
+        year: AnyEvent,
+        json: Optional[ApiLeaderboardDayDict] = None,
     ):
-        self.id = id
-        self.year = year
+        self.id = to_user_id(id)
+        self.year = to_event(year)
         if json is not None:
             self.json = json
 
@@ -209,7 +228,7 @@ class MemberDays:
 
     def __getitem__(self, obj: Any):
         if self.json is None:
-            raise NotImplementedError
+            raise Missing
 
         if isinstance(obj, slice):
             # slightly imperfect
@@ -250,7 +269,7 @@ class MemberDays:
 
     def get_day(self, day: AnyDay) -> Dict[Part, DT_F_N]:
         if self.json is None:
-            raise NotImplementedError
+            raise Missing
         day = to_day(day)
 
         if not is_day_unlocked(self.year, day):
@@ -273,7 +292,7 @@ class MemberDays:
 
     def get_day_part(self, day: AnyDay, part: AnyPart) -> DT_F_N:
         if self.json is None:
-            raise NotImplementedError
+            raise Missing
         day = to_day(day)
         part = to_part(part)
 
@@ -299,7 +318,7 @@ class MemberDays:
 UNLOCK_TIME = datetime.timedelta(hours=5)
 
 
-def is_day_unlocked(year: Union[Event, str, int], day: AnyDay) -> bool:
+def is_day_unlocked(year: AnyEvent, day: AnyDay) -> bool:
     return (
         datetime.datetime(int(year), 12, to_day_int(day)) + UNLOCK_TIME
         <= datetime.datetime.utcnow()

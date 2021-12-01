@@ -5,8 +5,6 @@ __all__ = [
     "is_day_unlocked",
     "get_cookiejar",
     "get_leaderboard_json",
-    "starstext",
-    "pretty_print_years",
     "UserId",
     "Event",
     "Day",
@@ -21,5 +19,4 @@ from .api import (
     get_cookiejar,
     get_leaderboard_json,
 )
-from .pretty import starstext, pretty_print_years
 from .types import UserId, Event, Day, Part

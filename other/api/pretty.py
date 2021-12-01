@@ -1,11 +1,18 @@
 from __future__ import annotations
 
 import datetime
+from enum import Enum
 from requests.cookies import RequestsCookieJar
-from typing import Optional
+from typing import Generator
 
-from .api import LeaderboardYear, MemberDays, is_day_unlocked
-from .types import ALL_DAYS, ALL_PARTS, Event, UserId
+from .api import LeaderboardYear, LeaderboardYearMember, MemberDays, is_day_unlocked
+from .types import ALL_DAYS, ALL_PARTS, Event, UserId, to_event
+
+
+class Length(Enum):
+    long = 1
+    short = 2
+    summary = 3
 
 
 COLOUR_STAR = "\x1b[93m"  # light yellow
@@ -64,45 +71,79 @@ def starstext(memberdays: MemberDays, colours: bool = False, short: bool = True)
     return outstr
 
 
-def pretty_print_years(
-    user: UserId,
-    cookiejar: RequestsCookieJar,
-    colour: bool = False,
-    length: str = "short",
-    year: Optional[Event] = None,
-    show_missing: Optional[bool] = None,
-):
-    if show_missing is None:
-        show_missing = year is not None
-    if year is None:
-        for iyear in range(2015, datetime.datetime.now().year + 1):
-            pretty_print_years(
-                user=user,
-                cookiejar=cookiejar,
-                colour=colour,
-                length=length,
-                year=Event(str(iyear)),
-                show_missing=show_missing,
-            )
-        return
+def leaderboard_line_pprint(
+    member: LeaderboardYearMember, colour: bool, length: Length
+) -> str:
+    assert member.days is not None
 
-    ly = LeaderboardYear(user, year)
-    if ly.fetch(cookiejar) is None:
-        if show_missing:
-            if length == "short":
-                print("{:04} [{}]".format(year, "missing".center(25)))
-            elif length == "long":
-                print("{:04} [{}]".format(year, "missing".center(50)))
-            else:
-                print("{:04} [{}]".format(year, "gone".center(4)))
-        return False
-    if length in ("short", "long"):
-        data = starstext(ly.members[user].days, colour, length == "short")
-        print("{:04} [{}]".format(year, data))
+    if length in (Length.short, Length.long):
+        data = starstext(member.days, colour, length == Length.short)
+        return "[{}]".format(data)
     else:  # length == "summary"
         if colour:
             cstar = COLOUR_STAR
             creset = COLOUR_RESET
         else:
             cstar = creset = ""
-        print("{:04} [{}{: 3}*{}]".format(year, cstar, ly.members[user].stars, creset))
+        return "[{}{: 3}*{}]".format(cstar, member.stars, creset)
+
+
+def iter_years(until: datetime.date | None = None) -> Generator[Event, None, None]:
+    if until is None:
+        until = datetime.date.today()
+    for iyear in range(2015, until.year):
+        yield to_event(iyear)
+    if until.month >= 12:
+        yield to_event(until.year)
+
+
+def pretty_print_years(
+    user: UserId,
+    year: Event,
+    cookiejar: RequestsCookieJar,
+    leaderboard: UserId | None = None,
+    colour: bool = False,
+    length: Length = Length.short,
+    show_missing: bool = True,
+):
+    if leaderboard is None:
+        leaderboard = user
+    ly = LeaderboardYear(user, year)
+    if ly.fetch(cookiejar) is None:
+        if show_missing:
+            if length == Length.short:
+                print("{:04} [{}]".format(year, "missing".center(25)))
+            elif length == Length.long:
+                print("{:04} [{}]".format(year, "missing".center(50)))
+            else:
+                print("{:04} [{}]".format(year, "gone".center(4)))
+        return False
+    print(
+        "{:04} {}".format(
+            year, leaderboard_line_pprint(ly.members[user], colour, length)
+        )
+    )
+
+
+def pretty_print_leaderboard(
+    leaderboard: UserId,
+    year: Event,
+    cookiejar: RequestsCookieJar,
+    colour: bool = False,
+    length: Length = Length.short,
+    show_missing: bool = True,
+):
+    ly = LeaderboardYear(leaderboard, year)
+    if ly.fetch(cookiejar) is None:
+        return False
+    assert ly.members is not None
+    # namewidth = max(len(m.name) for m in ly.members.values())
+    # namewidth = min(namewidth, 20)
+
+    for m in sorted(
+        ly.members.values(),
+        key=lambda m: (-m.local_score, -m.stars, m.name or "\xff", m.id),
+    ):
+        if not show_missing and m.stars <= 0:
+            continue
+        print("{} {}".format(leaderboard_line_pprint(m, colour, length), m.full_name))
