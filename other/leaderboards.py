@@ -1,14 +1,17 @@
 from __future__ import annotations
 
 import argparse
-from typing import Any, Callable
 import colorama
+from dataclasses import dataclass
+from datetime import datetime
 from dotenv import load_dotenv
 import os
+from typing import Any, Callable
 
 from api import get_cookiejar
+from api.api import LeaderboardYear, LeaderboardYearMember
 from api.pretty import Length, iter_years, pretty_print_leaderboard, pretty_print_years
-from api.types import Event, UserId, to_event, to_user_id
+from api.types import ALL_DAYS, Day, Event, Part, UserId, to_event, to_user_id
 
 
 load_dotenv()
@@ -16,6 +19,12 @@ load_dotenv()
 
 SESSION: str = os.environ["ADVENTOFCODE_SESSION"]
 COOKIEJAR = get_cookiejar(SESSION)
+
+
+def parser_add_colour(parser: argparse.ArgumentParser):
+    colour = parser.add_mutually_exclusive_group()
+    colour.add_argument("-c", "--colour", action="store_true", default=False)
+    colour.add_argument("--no-colour", dest="colour", action="store_false")
 
 
 def make_parser():
@@ -26,13 +35,7 @@ def make_parser():
     parser_pprint = subparsers.add_parser("pprint", aliases=["print", "show"])
     parser_pprint.set_defaults(subparser=main_pprint)
     parser_pprint.add_argument("leaderboard", action="store", type=to_user_id)
-    parser_pprint_colour = parser_pprint.add_mutually_exclusive_group()
-    parser_pprint_colour.add_argument(
-        "-c", "--colour", action="store_true", default=False
-    )
-    parser_pprint_colour.add_argument(
-        "--no-colour", dest="colour", action="store_false"
-    )
+    parser_add_colour(parser_pprint)
     parser_pprint_long = parser_pprint.add_mutually_exclusive_group()
     parser_pprint_long.set_defaults(length=Length.short)
     parser_pprint_long.add_argument(
@@ -48,6 +51,17 @@ def make_parser():
         "-y", "--year", action="store", type=to_event, default=None
     )
     parser_pprint.add_argument(
+        "-u", "--user", action="store", type=to_user_id, nargs="?", default=None
+    )
+
+    parser_timeline = subparsers.add_parser("timeline", aliases=["times", "tl"])
+    parser_timeline.set_defaults(subparser=main_timeline)
+    parser_timeline.add_argument("leaderboard", action="store", type=to_user_id)
+    parser_add_colour(parser_timeline)
+    parser_timeline.add_argument(
+        "-y", "--year", action="store", type=to_event, default=None
+    )
+    parser_timeline.add_argument(
         "-u", "--user", action="store", type=to_user_id, nargs="?", default=None
     )
 
@@ -71,7 +85,7 @@ class PPrintNamespace(Namespace):
     leaderboard: UserId
     colour: bool
     length: Length
-    year: Event
+    year: Event | None
     user: UserId | None
 
 
@@ -96,6 +110,101 @@ def main_pprint(args: PPrintNamespace):
             colour=args.colour,
             length=args.length,
         )
+
+
+class TimelineNamespace(Namespace):
+    leaderboard: UserId
+    colour: bool
+    year: Event | None
+    user: UserId | None
+
+
+@dataclass(eq=True, frozen=True)
+class TimelineEvent:
+    time: datetime
+    member: LeaderboardYearMember
+    day: Day
+    part: Part
+
+
+def main_timeline_events(leaderboard: UserId, year: Event) -> set[TimelineEvent]:
+    lb = LeaderboardYear(leaderboard, year)
+    lb.fetch(COOKIEJAR)
+    events: set[TimelineEvent] = set()
+    for member in lb.members.values():
+        for dayi in ALL_DAYS:
+            day = member.days.get_day(dayi)
+            for part, dt in day.items():
+                if isinstance(dt, datetime):
+                    events.add(
+                        TimelineEvent(time=dt, member=member, day=dayi, part=part)
+                    )
+    return events
+
+
+TIMELINE_STRFTIME = "%Y%m%d%H%M%S"
+TIMELINE_STRFTIME_COLOUR = (
+    colorama.Fore.LIGHTYELLOW_EX
+    + "%Y"
+    + colorama.Fore.LIGHTGREEN_EX
+    + "%m"
+    + colorama.Fore.LIGHTYELLOW_EX
+    + "%d"
+    + colorama.Fore.LIGHTMAGENTA_EX
+    + "%H"
+    + colorama.Fore.LIGHTBLUE_EX
+    + "%M"
+    + colorama.Fore.LIGHTMAGENTA_EX
+    + "%S"
+    + colorama.Fore.RESET
+)
+
+
+def main_timeline_row(
+    e: TimelineEvent, colour: bool = False, include_year: bool = False
+) -> str:
+    s = e.time.strftime(TIMELINE_STRFTIME_COLOUR if colour else TIMELINE_STRFTIME)
+    s += " "
+    if colour:
+        if include_year:
+            s += (
+                colorama.Fore.LIGHTYELLOW_EX
+                + e.member.leaderboardyear.event.rjust(4)
+                + colorama.Fore.LIGHTBLACK_EX
+                + "."
+            )
+        s += (
+            colorama.Fore.LIGHTGREEN_EX
+            + e.day.rjust(2, " ")
+            + colorama.Fore.LIGHTBLACK_EX
+            + "."
+            + (colorama.Fore.LIGHTYELLOW_EX if e.part == "2" else colorama.Fore.CYAN)
+            + e.part
+            + colorama.Fore.RESET
+        )
+    else:
+        if include_year:
+            s += e.member.leaderboardyear.event.rjust(4) + "."
+        s += e.day.rjust(2, " ") + "." + e.part
+    s += " "
+    s += e.member.full_name
+    return s
+
+
+def main_timeline(args: TimelineNamespace):
+    events: set[TimelineEvent]
+    if args.year is None:
+        events = set()
+        for year in iter_years():
+            events.update(main_timeline_events(args.leaderboard, year))
+    else:
+        events = main_timeline_events(args.leaderboard, args.year)
+
+    if args.user is not None:
+        events = {e for e in events if e.member.id == args.user}
+
+    for e in sorted(events, key=lambda e: e.time):
+        print(main_timeline_row(e, colour=args.colour, include_year=args.year is None))
 
 
 if __name__ == "__main__":
