@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from dotenv import load_dotenv
 import os
+import sys
 from typing import Any, Callable
 
 from api import get_cookiejar
@@ -21,21 +22,42 @@ SESSION: str = os.environ["ADVENTOFCODE_SESSION"]
 COOKIEJAR = get_cookiejar(SESSION)
 
 
-def parser_add_colour(parser: argparse.ArgumentParser):
+def parser_add_colour(
+    parser: argparse.ArgumentParser, dest: str, set_default: bool = False
+):
     colour = parser.add_mutually_exclusive_group()
-    colour.add_argument("-c", "--colour", action="store_true", default=False)
-    colour.add_argument("--no-colour", dest="colour", action="store_false")
+    if set_default:
+        colour.set_defaults(**{dest: None})
+    colour.add_argument(
+        "-c",
+        "--colour",
+        "--color",
+        dest=dest,
+        action="store_true",
+        default=argparse.SUPPRESS,
+    )
+    colour.add_argument(
+        "--no-colour",
+        "--no-color",
+        dest=dest,
+        action="store_false",
+        default=argparse.SUPPRESS,
+    )
+    return colour
 
 
 def make_parser():
     parser = argparse.ArgumentParser()
+
+    parser_add_colour(parser, dest="rawcolour", set_default=True)
+
     parser.set_defaults(parser=parser, subparser=main_default)
     subparsers = parser.add_subparsers()
 
     parser_pprint = subparsers.add_parser("pprint", aliases=["print", "show"])
     parser_pprint.set_defaults(subparser=main_pprint)
     parser_pprint.add_argument("leaderboard", action="store", type=to_user_id)
-    parser_add_colour(parser_pprint)
+    parser_add_colour(parser_pprint, dest="rawcolour")
     parser_pprint_long = parser_pprint.add_mutually_exclusive_group()
     parser_pprint_long.set_defaults(length=Length.short)
     parser_pprint_long.add_argument(
@@ -57,7 +79,7 @@ def make_parser():
     parser_timeline = subparsers.add_parser("timeline", aliases=["times", "tl"])
     parser_timeline.set_defaults(subparser=main_timeline)
     parser_timeline.add_argument("leaderboard", action="store", type=to_user_id)
-    parser_add_colour(parser_timeline)
+    parser_add_colour(parser_timeline, dest="rawcolour")
     parser_timeline.add_argument(
         "-y", "--year", action="store", type=to_event, default=None
     )
@@ -72,6 +94,25 @@ class Namespace(argparse.Namespace):
     parser: argparse.ArgumentParser
     subparser: Callable[[Namespace], Any]
 
+    rawcolour: bool | None
+    colour: bool
+
+
+def parse_colour(colour: bool | None) -> bool:
+    if colour is None:
+        strip = None
+    else:
+        strip = not colour
+    colorama.init(convert=None, strip=strip)
+    if colour is not None:
+        return colour
+    if isinstance(sys.stdout, colorama.ansitowin32.StreamWrapper):
+        converter: colorama.ansitowin32.AnsiToWin32 = (
+            sys.stdout._StreamWrapper__convertor
+        )
+        return converter.convert
+    return not strip
+
 
 class EmptyNamespace(Namespace):
     pass
@@ -83,7 +124,7 @@ def main_default(args: EmptyNamespace):
 
 class PPrintNamespace(Namespace):
     leaderboard: UserId
-    colour: bool
+    # colour: bool
     length: Length
     year: Event | None
     user: UserId | None
@@ -114,7 +155,7 @@ def main_pprint(args: PPrintNamespace):
 
 class TimelineNamespace(Namespace):
     leaderboard: UserId
-    colour: bool
+    # colour: bool
     year: Event | None
     user: UserId | None
 
@@ -208,8 +249,7 @@ def main_timeline(args: TimelineNamespace):
 
 
 if __name__ == "__main__":
-    colorama.init()
-
     parser = make_parser()
     args = parser.parse_args(namespace=Namespace())
+    args.colour = parse_colour(args.rawcolour)
     args.subparser(args)

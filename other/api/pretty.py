@@ -27,7 +27,7 @@ def starstext(memberdays: MemberDays, colours: bool = False, short: bool = True)
         cstar = COLOUR_STAR, "*"
         chalfstar = COLOUR_HALFSTAR, "*"
         cnostar = COLOUR_NOSTAR, "*"
-        clocked = COLOUR_LOCKEDSTAR, "*"
+        clocked = COLOUR_LOCKEDSTAR, " "
         creset = COLOUR_RESET
     else:
         cstar = "", "*"
