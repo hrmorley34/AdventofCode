@@ -140,10 +140,18 @@ def pretty_print_leaderboard(
     # namewidth = max(len(m.name) for m in ly.members.values())
     # namewidth = min(namewidth, 20)
 
+    scorewidth = max(len(str(m.local_score)) for m in ly.members.values())
+
     for m in sorted(
         ly.members.values(),
         key=lambda m: (-m.local_score, -m.stars, m.name or "\xff", m.id),
     ):
         if not show_missing and m.stars <= 0:
             continue
-        print("{} {}".format(leaderboard_line_pprint(m, colour, length), m.full_name))
+        print(
+            "{} {} {}".format(
+                leaderboard_line_pprint(m, colour, length),
+                str(m.local_score).rjust(scorewidth),
+                m.full_name,
+            )
+        )
