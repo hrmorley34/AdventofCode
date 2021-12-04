@@ -132,6 +132,7 @@ def pretty_print_leaderboard(
     colour: bool = False,
     length: Length = Length.short,
     show_missing: bool = True,
+    count: int | None = None,
 ):
     ly = LeaderboardYear(leaderboard, year)
     if ly.fetch(cookiejar) is None:
@@ -155,3 +156,7 @@ def pretty_print_leaderboard(
                 m.full_name,
             )
         )
+        if count is not None:
+            count -= 1
+            if count <= 0:
+                break

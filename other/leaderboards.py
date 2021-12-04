@@ -75,6 +75,7 @@ def make_parser():
     parser_pprint.add_argument(
         "-u", "--user", action="store", type=to_user_id, nargs="?", default=None
     )
+    parser_pprint.add_argument("-n", "--top", action="store", type=int, default=None)
 
     parser_timeline = subparsers.add_parser("timeline", aliases=["times", "tl"])
     parser_timeline.set_defaults(subparser=main_timeline)
@@ -85,6 +86,9 @@ def make_parser():
     )
     parser_timeline.add_argument(
         "-u", "--user", action="store", type=to_user_id, nargs="?", default=None
+    )
+    parser_timeline.add_argument(
+        "-n", "--recent", action="store", type=int, default=None
     )
 
     return parser
@@ -128,13 +132,19 @@ class PPrintNamespace(Namespace):
     length: Length
     year: Event | None
     user: UserId | None
+    top: int | None
 
 
 def main_pprint(args: PPrintNamespace):
     if args.user is None:
         args.user = args.leaderboard
     if args.year is None:
-        for year in iter_years():
+        if args.top is None:
+            it = iter_years()
+        else:
+            it = list(iter_years())[-args.top :]
+
+        for year in it:
             pretty_print_years(
                 args.user,
                 year=year,
@@ -150,6 +160,7 @@ def main_pprint(args: PPrintNamespace):
             cookiejar=COOKIEJAR,
             colour=args.colour,
             length=args.length,
+            count=args.top,
         )
 
 
@@ -158,6 +169,7 @@ class TimelineNamespace(Namespace):
     # colour: bool
     year: Event | None
     user: UserId | None
+    recent: int | None
 
 
 @dataclass(eq=True, frozen=True)
@@ -244,7 +256,12 @@ def main_timeline(args: TimelineNamespace):
     if args.user is not None:
         events = {e for e in events if e.member.id == args.user}
 
-    for e in sorted(events, key=lambda e: e.time):
+    if args.recent is None:
+        sl = slice(None)
+    else:
+        sl = slice(-args.recent, None)
+
+    for e in sorted(events, key=lambda e: e.time)[sl]:
         print(main_timeline_row(e, colour=args.colour, include_year=args.year is None))
 
 
