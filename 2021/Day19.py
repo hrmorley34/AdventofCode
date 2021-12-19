@@ -248,3 +248,18 @@ if __name__ == "__main__":
         for point in SCANNERS[key]:
             beacons.add(KnownPosition(inv.apply(point)))
     print("Part 1:", len(beacons))
+
+    SCANNERS_LIST_IDS = list(SCANNERS)
+    # DISTANCES: dict[frozenset[int], int] = {}
+    max_distance: int = 0
+    for i, scanner1 in enumerate(SCANNERS_LIST_IDS):
+        pos1 = from_zero[scanner1]
+        for scanner2 in SCANNERS_LIST_IDS[i + 1 :]:
+            pos2 = from_zero[scanner2]
+            distance = (
+                abs(pos1.dx - pos2.dx) + abs(pos1.dy - pos2.dy) + abs(pos1.dz - pos2.dz)
+            )
+            # DISTANCES[frozenset((scanner1, scanner2))] = distance
+            if distance > max_distance:
+                max_distance = distance
+    print("Part 2:", max_distance)
