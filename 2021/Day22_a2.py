@@ -7,6 +7,7 @@ from typing import Generator, Iterable, Literal, NamedTuple
 
 
 class Int3(NamedTuple):
+    "A 3D point"
     x: int
     y: int
     z: int
@@ -21,6 +22,7 @@ COMMAND = re.compile(
 
 
 def command_to_range(c: str) -> ActiveRange:
+    "Convert a command string `on x=-123..456,` etc. to an ActiveRange"
     m = COMMAND.fullmatch(c)
     assert m is not None
     return ActiveRange(
@@ -31,24 +33,32 @@ def command_to_range(c: str) -> ActiveRange:
 
 
 class Range(NamedTuple):
+    """A cuboid of points
+
+    `min` is the lower point in all three dimensions, and `max` is the *inclusive* higher point"""
+
     min: Int3
     max: Int3
 
     def overlap(self, range: Range) -> bool:
+        "Do this range and `range` overlap at all?"
         return not (
             any(a < b for a, b in zip(self.max, range.min))
             or any(a > b for a, b in zip(self.min, range.max))
         )
 
     def contains(self, range: Range) -> bool:
+        "Is `range` wholely contained within this?"
         return all(a >= b for a, b in zip(self.max, range.max)) and all(
             a <= b for a, b in zip(self.min, range.min)
         )
 
     def has_volume(self) -> bool:
+        "Is this a valid cuboid? (Are `min` and `max` the right way round?)"
         return all(a <= b for a, b in zip(self.min, self.max))
 
     def volume(self) -> int:
+        "Calculate the volume of this cuboid"
         assert self.has_volume()
         return (
             (self.max.x + 1 - self.min.x)
@@ -57,6 +67,7 @@ class Range(NamedTuple):
         )
 
     def remove(self, range: Range) -> set[Range]:
+        "Remove another cuboid from this one, and return a set of parts representing the remainder."
         if not self.overlap(range):
             return {self}
 
@@ -71,6 +82,7 @@ class Range(NamedTuple):
         return sself - srange
 
     def crop(self, range: Range) -> set[Range]:
+        "Select only the parts of this cuboid that are within `range`"
         if not self.overlap(range):
             return set()
 
@@ -84,6 +96,9 @@ class Range(NamedTuple):
     def split(
         self, x: Iterable[int] = (), y: Iterable[int] = (), z: Iterable[int] = ()
     ) -> set[Range]:
+        """Split this cuboid into multiple smaller cuboids, between `n-1` and `n` for each `n` of `x`, `y`, and `z` (in the appropriate dimension)
+
+        Splitting with `x=(5,)` will return a cuboid with a `max.x` of `4`, and another with a `min.x` of `5` (if both are valid cuboids)"""
         r: set[Range] = {self}
         xs = set(x)
         if xs:
@@ -112,6 +127,7 @@ class Range(NamedTuple):
 
 
 class ActiveRange(NamedTuple):
+    "A cuboid that can be turned on or off"
     active: bool
     min: Int3
     max: Int3
@@ -121,6 +137,7 @@ class ActiveRange(NamedTuple):
 
 
 def rangeset_restrict(actual: ActiveRange, ranges: set[Range]) -> set[Range]:
+    "Remove cubes in `ranges` from `actual`, and return the parts of `actual` not in any of `ranges`"
     if not actual.active:
         return set()
 
@@ -133,10 +150,12 @@ def rangeset_restrict(actual: ActiveRange, ranges: set[Range]) -> set[Range]:
 
 
 def rangeset_size(s: set[Range]) -> int:
+    "Return the volume of a set of cuboids"
     return sum(a.volume() for a in s)
 
 
 def rangeset_size_restricted(s: set[Range], limit: Range) -> int:
+    "Return the volume of a set of cuboids, counting only within `limit`"
     return sum(a.volume() for a in chain(*(a.crop(limit) for a in s)))
 
 
