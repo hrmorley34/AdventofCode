@@ -70,6 +70,17 @@ class Range(NamedTuple):
         srange = range.split(*splits)
         return sself - srange
 
+    def crop(self, range: Range) -> set[Range]:
+        if not self.overlap(range):
+            return set()
+
+        return {
+            Range(
+                Int3(*(max(self.min[i], range.min[i]) for i in (0, 1, 2))),
+                Int3(*(min(self.max[i], range.max[i]) for i in (0, 1, 2))),
+            )
+        }
+
     def split(
         self, x: Iterable[int] = (), y: Iterable[int] = (), z: Iterable[int] = ()
     ) -> set[Range]:
@@ -109,27 +120,40 @@ class ActiveRange(NamedTuple):
         return Range(self.min, self.max)
 
 
-def rangeset_size(actual: ActiveRange, ranges: set[Range]) -> int:
+def rangeset_restrict(actual: ActiveRange, ranges: set[Range]) -> set[Range]:
     if not actual.active:
-        return 0
+        return set()
 
     s = {actual.to_range()}
     for r in ranges:
         s = set(chain(*(a.remove(r) for a in s)))
         if not s:
-            return 0
+            return s
+    return s
+
+
+def rangeset_size(s: set[Range]) -> int:
     return sum(a.volume() for a in s)
+
+
+def rangeset_size_restricted(s: set[Range], limit: Range) -> int:
+    return sum(a.volume() for a in chain(*(a.crop(limit) for a in s)))
 
 
 if __name__ == "__main__":
     PUZZLE_INPUT = puzzle_input().splitlines()
 
+    LIMIT_RANGE = Range(Int3(-50, -50, -50), Int3(50, 50, 50))
     COUNT = len(PUZZLE_INPUT)
-    total = 0
+    total1 = 0
+    total2 = 0
     ranges: set[Range] = set()
     for i, c in enumerate(reversed(PUZZLE_INPUT), 1):
         r = command_to_range(c)
-        total += rangeset_size(r, ranges)
-        print(f"{i:3}/{COUNT:3}", ":", c, ":", total)
+        s = rangeset_restrict(r, ranges)
+        total1 += rangeset_size_restricted(s, LIMIT_RANGE)
+        total2 += rangeset_size(s)
+        # print(f"{i:3}/{COUNT:3}", ":", c, ":", total2)
         ranges.add(r.to_range())
-    print("Part 2:", total)
+    print("Part 1:", total1)
+    print("Part 2:", total2)
