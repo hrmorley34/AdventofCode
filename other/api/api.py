@@ -338,8 +338,8 @@ def get_leaderboard_json(
     r = requests.get(url, cookies=cookiejar)
     if r.history:
         # redirected -> main leaderboard; session is invalid/missing
-        return None
+        raise ValueError("Unexpected redirect; check your token")
     elif r.status_code != 200:
-        return None
+        r.raise_for_status()
     else:
         return r.json()
