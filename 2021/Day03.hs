@@ -20,14 +20,30 @@ main :: IO ()
 main = do
     nums <- readNums "day03.txt"
     print (part1 nums)
-    -- print (part2 nums)
+    print (part2 nums)
 
 
 countBools :: [Bool] -> Int
 countBools = sum . map intifyNum
 
+getModal :: (Int -> Int -> Bool) -> [Bool] -> Bool
+getModal comp xs = ((countBools xs * 2) `comp` (length xs))
+
 findModes :: (Int -> Int -> Bool) -> [[Bool]] -> [Bool]
-findModes comp xs = map (\i -> countBools (map (\bs -> (bs !! i)) xs) `comp` ((length xs) `div` 2)) [0.. length (xs!!0) - 1]
+findModes comp xs = map (\i -> getModal comp (map (!! i) xs)) [0.. length (xs!!0) - 1]
 
 part1 :: [[Bool]] -> Int
 part1 xs = intifyNums (findModes (>=) xs) * intifyNums (findModes (<) xs)
+
+getModalHead :: (Int -> Int -> Bool) -> [[Bool]] -> Bool
+getModalHead comp xs = getModal comp (map head xs)
+
+filterModes :: (Int -> Int -> Bool) -> [[Bool]] -> [Bool]
+filterModes _ [] = []
+filterModes _ [b] = b
+filterModes comp xs = (\x ->
+    x : (filterModes comp . map tail . filter (((x) ==) . head)) xs)
+    (getModalHead comp xs)
+
+part2 :: [[Bool]] -> Int
+part2 xs = intifyNums (filterModes (>=) xs) * intifyNums (filterModes (<) xs)
