@@ -34,12 +34,12 @@ from typing import Dict, Literal, NewType, Optional, Sequence, TypedDict, Union,
 
 UnixTimestamp = NewType("UnixTimestamp", int)
 
-UserId = NewType("UserId", str)
+UserId = NewType("UserId", int)
 AnyUserId = Union[UserId, str, int]
 
 
 def to_user_id(user_id: AnyUserId) -> UserId:
-    return UserId(str(user_id))
+    return UserId(int(user_id))
 
 
 Event = NewType("Event", str)

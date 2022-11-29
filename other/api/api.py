@@ -99,7 +99,7 @@ class LeaderboardYear:
 
 class LeaderboardYearMember:
     _YEARMEMBEROBJECTS: MutableMapping[
-        tuple[LeaderboardYear, str], LeaderboardYearMember
+        tuple[LeaderboardYear, UserId], LeaderboardYearMember
     ] = WeakValueDictionary()
     id: UserId
     leaderboardyear: LeaderboardYear
@@ -332,7 +332,7 @@ def get_cookiejar(session_id: str) -> RequestsCookieJar:
 
 
 def get_leaderboard_json(
-    year: str, leaderboard: str, cookiejar: RequestsCookieJar
+    year: str, leaderboard: AnyUserId, cookiejar: RequestsCookieJar
 ) -> Optional[ApiLeaderboard]:
     url = f"https://adventofcode.com/{year}/leaderboard/private/view/{leaderboard}.json"
     r = requests.get(url, cookies=cookiejar)
