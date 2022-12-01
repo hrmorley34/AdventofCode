@@ -35,6 +35,7 @@ def parser_add_colour(
         dest=dest,
         action="store_true",
         default=argparse.SUPPRESS,
+        help="force colour, even on non-pty output",
     )
     colour.add_argument(
         "--no-colour",
@@ -42,6 +43,7 @@ def parser_add_colour(
         dest=dest,
         action="store_false",
         default=argparse.SUPPRESS,
+        help="force colour off",
     )
     return colour
 
@@ -54,41 +56,97 @@ def make_parser():
     parser.set_defaults(parser=parser, subparser=main_default)
     subparsers = parser.add_subparsers()
 
-    parser_pprint = subparsers.add_parser("pprint", aliases=["print", "show"])
+    parser_pprint = subparsers.add_parser(
+        "pprint",
+        aliases=["print", "show"],
+        help="show the leaderboard",
+    )
     parser_pprint.set_defaults(subparser=main_pprint)
     parser_pprint.add_argument("leaderboard", action="store", type=to_user_id)
     parser_add_colour(parser_pprint, dest="rawcolour")
     parser_pprint_long = parser_pprint.add_mutually_exclusive_group()
     parser_pprint_long.set_defaults(length=Length.short)
     parser_pprint_long.add_argument(
-        "-l", "--long", dest="length", action="store_const", const=Length.long
+        "-l",
+        "--long",
+        dest="length",
+        action="store_const",
+        const=Length.long,
+        help="show 50 stars",
     )
     parser_pprint_long.add_argument(
-        "--short", dest="length", action="store_const", const=Length.short
+        "--short",
+        dest="length",
+        action="store_const",
+        const=Length.short,
+        help="show 25 stars or slashes (default)",
     )
     parser_pprint_long.add_argument(
-        "-s", "--summary", dest="length", action="store_const", const=Length.summary
+        "-s",
+        "--summary",
+        dest="length",
+        action="store_const",
+        const=Length.summary,
+        help="show the star count only",
     )
     parser_pprint.add_argument(
-        "-y", "--year", action="store", type=to_event, default=None
+        "-y",
+        "--year",
+        action="store",
+        type=to_event,
+        default=None,
+        help="display a single year (default: show all years)",
     )
     parser_pprint.add_argument(
-        "-u", "--user", action="store", type=to_user_id, nargs="?", default=None
+        "-u",
+        "--user",
+        action="store",
+        type=to_user_id,
+        nargs="?",
+        default=None,
+        help="display a single user (default: show all in a year or the leaderboard owner in one year)",
     )
-    parser_pprint.add_argument("-n", "--top", action="store", type=int, default=None)
+    parser_pprint.add_argument(
+        "-n",
+        "--top",
+        action="store",
+        type=int,
+        default=None,
+        help="limit the number of users shown",
+    )
 
-    parser_timeline = subparsers.add_parser("timeline", aliases=["times", "tl"])
+    parser_timeline = subparsers.add_parser(
+        "timeline",
+        aliases=["times", "tl"],
+        help="show a timeline of solves",
+    )
     parser_timeline.set_defaults(subparser=main_timeline)
     parser_timeline.add_argument("leaderboard", action="store", type=to_user_id)
     parser_add_colour(parser_timeline, dest="rawcolour")
     parser_timeline.add_argument(
-        "-y", "--year", action="store", type=to_event, default=None
+        "-y",
+        "--year",
+        action="store",
+        type=to_event,
+        default=None,
+        help="display a single year (default: show all years)",
     )
     parser_timeline.add_argument(
-        "-u", "--user", action="store", type=to_user_id, nargs="?", default=None
+        "-u",
+        "--user",
+        action="store",
+        type=to_user_id,
+        nargs="?",
+        default=None,
+        help="display a single user (default: show all users)",
     )
     parser_timeline.add_argument(
-        "-n", "--recent", action="store", type=int, default=None
+        "-n",
+        "--recent",
+        action="store",
+        type=int,
+        default=None,
+        help="limit the number of events shown",
     )
 
     return parser
