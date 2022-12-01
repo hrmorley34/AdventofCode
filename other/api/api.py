@@ -332,7 +332,7 @@ def get_cookiejar(session_id: str) -> RequestsCookieJar:
 
 
 def get_leaderboard_json(
-    year: str, leaderboard: AnyUserId, cookiejar: RequestsCookieJar
+    year: AnyEvent, leaderboard: AnyUserId, cookiejar: RequestsCookieJar
 ) -> Optional[ApiLeaderboard]:
     url = f"https://adventofcode.com/{year}/leaderboard/private/view/{leaderboard}.json"
     r = requests.get(url, cookies=cookiejar)
