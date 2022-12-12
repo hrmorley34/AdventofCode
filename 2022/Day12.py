@@ -1,6 +1,7 @@
 import string
 from dataclasses import dataclass, field
 from math import inf, sqrt
+from typing import Callable
 
 from puzzle_input import puzzle_input
 
@@ -21,6 +22,7 @@ class Node:
     y: int
     elevation: int
     neighbours: list["Node"] = field(default_factory=list, repr=False)
+    reverse_neighbours: list["Node"] = field(default_factory=list, repr=False)
 
 
 @dataclass()
@@ -28,6 +30,7 @@ class Token:
     node: Node
     distance_travelled: tuple[int, tuple[int, int] | None] | None  # dijkstra distance
     distance_to_go: float  # A* distance heuristic - euclidean distance
+    elevation_target: int
     neighbours: list["Token"] = field(default_factory=list, repr=False)
 
     @property
@@ -35,13 +38,20 @@ class Token:
         return (
             (inf if self.distance_travelled is None else self.distance_travelled[0])
             + self.distance_to_go
-            + (25 - self.node.elevation)
+            + self.elevation_target
         )
 
-    def __init__(self, node: Node, target: Node) -> None:
+    def __init__(self, node: Node, target: Node | None) -> None:
         self.node = node
         self.distance_travelled = None
-        self.distance_to_go = sqrt((node.x - target.x) ** 2 + (node.y - target.y) ** 2)
+        if target is None:
+            self.distance_to_go = 0  # don't use heuristic
+            self.elevation_target = self.node.elevation
+        else:
+            self.distance_to_go = sqrt(
+                (node.x - target.x) ** 2 + (node.y - target.y) ** 2
+            )
+            self.elevation_target = 25 - self.node.elevation
         self.neighbours = []
 
 
@@ -63,11 +73,13 @@ def print_path(max_x: int, max_y: int, path: list[Token]) -> None:
         print(s)
 
 
-def astar(tokens: dict[tuple[int, int], Token]) -> tuple[int, list[Token]]:
+def astar(
+    tokens: dict[tuple[int, int], Token], condition: Callable[[Token], bool]
+) -> tuple[int, list[Token]]:
     queue: list[Token] = list(tokens.values())
     queue.sort(key=lambda t: t.sort_key)
     t = queue.pop(0)
-    while t.distance_to_go:
+    while condition(t):
         # if t.distance_travelled is None:
         #     print_unseen(*max(tokens, key=lambda t: t[0] + t[1]), queue)
         # print((t.node.x, t.node.y), t.node.elevation, t.distance_travelled)
@@ -125,6 +137,8 @@ if __name__ == "__main__":
                 n for n in neighbours if n.elevation - node.elevation <= 1
             )
             node.neighbours.extend(filtered_neighbours)
+            for n in node.neighbours:
+                n.reverse_neighbours.append(node)
 
     TOKENS: dict[tuple[int, int], Token] = {
         (x, y): Token(n, end)
@@ -135,7 +149,21 @@ if __name__ == "__main__":
     for t in TOKENS.values():
         t.neighbours.extend(TOKENS[n.x, n.y] for n in t.node.neighbours)
 
-    d, p = astar(TOKENS)
+    d, p = astar(TOKENS, lambda t: t.distance_to_go > 0)
     # print([(t.node.x, t.node.y, t.node.elevation) for t in p])
     # print_path(*max(TOKENS, key=lambda t: t[0] + t[1]), p)
     print(f"Part 1: {d}")
+
+    REVERSE_TOKENS: dict[tuple[int, int], Token] = {
+        (x, y): Token(n, None)
+        for y, row in enumerate(NODE_MAP)
+        for x, n in enumerate(row)
+    }
+    REVERSE_TOKENS[end.x, end.y].distance_travelled = (0, None)
+    for t in REVERSE_TOKENS.values():
+        t.neighbours.extend(REVERSE_TOKENS[n.x, n.y] for n in t.node.reverse_neighbours)
+
+    d, p = astar(REVERSE_TOKENS, lambda t: t.node.elevation != 0)
+    # print([(t.node.x, t.node.y, t.node.elevation) for t in p])
+    # print_path(*max(TOKENS, key=lambda t: t[0] + t[1]), p)
+    print(f"Part 2: {d}")
