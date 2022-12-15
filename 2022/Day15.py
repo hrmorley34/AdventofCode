@@ -1,3 +1,4 @@
+from __future__ import annotations
 from puzzle_input import puzzle_input
 from dataclasses import dataclass
 import re
@@ -32,6 +33,28 @@ class Sensor:
                 s.add((self.pos[0] + dx, y))
         return s
 
+    # def get_invalidated_range(self) -> set[tuple[int, int]]:
+    #     mh_distance = self.mh_distance
+    #     s: set[tuple[int, int]] = set()
+    #     for dy in range(-mh_distance, mh_distance + 1):
+    #         xd = mh_distance - abs(dy)
+    #         for dx in range(-xd, xd + 1):
+    #             s.add((self.pos[0] + dx, self.pos[1] + dy))
+    #     return s
+
+    def is_position_invalid(self, pos: tuple[int, int]) -> bool:
+        return abs(self.pos[0] - pos[0]) + abs(self.pos[1] - pos[1]) <= self.mh_distance
+
+    def get_edge(self) -> set[tuple[int, int]]:
+        """Returns the position just outside the invalid range"""
+        mh_distance = self.mh_distance
+        s: set[tuple[int, int]] = set()
+        for dy in range(-mh_distance - 1, mh_distance + 2):
+            xd = mh_distance - abs(dy) + 1
+            for mul in (1, -1):
+                s.add((self.pos[0] + xd * mul, self.pos[1] + dy))
+        return s
+
 
 if __name__ == "__main__":
     PUZZLE_INPUT = puzzle_input().splitlines()
@@ -52,3 +75,23 @@ if __name__ == "__main__":
         excluded_positions |= {s.closest, s.pos}
     invalid_positions -= excluded_positions
     print(f"Part 1: {len(invalid_positions)}")
+
+    def position_is_invalid(p: tuple[int, int]):
+        return any(s.is_position_invalid(p) for s in SENSORS)
+
+    Q_R = (0, 4_000_000)
+    # Q_R = (0, 20)
+    check_positions: set[tuple[int, int]] = set()
+    for s in SENSORS:
+        check_positions |= {
+            p
+            for p in s.get_edge()
+            if Q_R[0] <= p[0] <= Q_R[1]
+            and Q_R[0] <= p[1] <= Q_R[1]
+            and not position_is_invalid(p)
+        }
+        print(len(check_positions))
+    # check_positions = {p for p in check_positions if not position_is_invalid(p)}
+    assert len(check_positions) == 1
+    p = next(iter(check_positions))
+    print(f"Part 2: {p[0]*4_000_000+p[1]}")
