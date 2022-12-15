@@ -45,26 +45,25 @@ class Sensor:
     def is_position_invalid(self, pos: tuple[int, int]) -> bool:
         return abs(self.pos[0] - pos[0]) + abs(self.pos[1] - pos[1]) <= self.mh_distance
 
-    def get_edge(self) -> set[tuple[int, int]]:
+    def get_edge(self, min_v: int, max_v: int) -> set[tuple[int, int]]:
         """Returns the position just outside the invalid range"""
         mh_distance = self.mh_distance
         s: set[tuple[int, int]] = set()
-        for dy in range(-mh_distance - 1, mh_distance + 2):
+        for dy in range(
+            max(min_v - self.pos[1], -mh_distance - 1),
+            min(max_v - self.pos[1], mh_distance + 2),
+        ):
             xd = mh_distance - abs(dy) + 1
             for mul in (1, -1):
-                s.add((self.pos[0] + xd * mul, self.pos[1] + dy))
+                p = (self.pos[0] + xd * mul, self.pos[1] + dy)
+                if min_v <= p[0] <= max_v and min_v <= p[1] <= max_v:
+                    s.add(p)
         return s
 
 
 if __name__ == "__main__":
     PUZZLE_INPUT = puzzle_input().splitlines()
     SENSORS = [Sensor.from_string(s) for s in PUZZLE_INPUT]
-    RANGE = (
-        min(min(s.pos[0] for s in SENSORS), min(s.closest[0] for s in SENSORS)),
-        max(max(s.pos[0] for s in SENSORS), max(s.closest[0] for s in SENSORS)),
-        min(min(s.pos[1] for s in SENSORS), min(s.closest[1] for s in SENSORS)),
-        max(max(s.pos[1] for s in SENSORS), max(s.closest[1] for s in SENSORS)),
-    )
 
     Q_Y = 2_000_000
     # Q_Y = 10
@@ -83,14 +82,9 @@ if __name__ == "__main__":
     # Q_R = (0, 20)
     check_positions: set[tuple[int, int]] = set()
     for s in SENSORS:
-        check_positions |= {
-            p
-            for p in s.get_edge()
-            if Q_R[0] <= p[0] <= Q_R[1]
-            and Q_R[0] <= p[1] <= Q_R[1]
-            and not position_is_invalid(p)
-        }
-        print(len(check_positions))
+        check_positions |= {p for p in s.get_edge(*Q_R) if not position_is_invalid(p)}
+        if len(check_positions):
+            break
     # check_positions = {p for p in check_positions if not position_is_invalid(p)}
     assert len(check_positions) == 1
     p = next(iter(check_positions))
