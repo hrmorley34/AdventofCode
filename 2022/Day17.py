@@ -1,5 +1,4 @@
-from itertools import cycle
-from typing import Iterator
+from typing import Iterable, Iterator, TypeVar
 
 
 def vadd(a: tuple[int, int], b: tuple[int, int]) -> tuple[int, int]:
@@ -70,16 +69,63 @@ class GenericFallingBlockSimulator:
         print("+" + "-" * (self.WALLS[1] - self.WALLS[0] - 1) + "+")
 
 
+T_co = TypeVar("T_co", covariant=True)
+
+
+class Cycle(Iterator[T_co]):
+    _it: list[T_co]
+    index: int
+
+    def __init__(self, it: Iterable[T_co]) -> None:
+        self._it = list(it)
+        self.index = 0
+
+    def __iter__(self) -> Iterator[T_co]:
+        return self
+
+    def __next__(self) -> T_co:
+        i = self._it[self.index]
+        self.index = (self.index + 1) % len(self._it)
+        return i
+
+
 if __name__ == "__main__":
     PUZZLE_INPUT = input("> ")
-    MOVES = cycle(-1 if c == "<" else 1 for c in PUZZLE_INPUT)
-    SHAPES = cycle(ROCKS)
+    MOVES = Cycle(-1 if c == "<" else 1 for c in PUZZLE_INPUT)
+    SHAPES = Cycle(ROCKS)
 
-    gfbs = GenericFallingBlockSimulator()
+    for NAME, ITERATIONS in (("Part 1", 2022), ("Part 2", 1_000_000_000_000)):
+        gfbs = GenericFallingBlockSimulator()
+        MOVES.index = 0
+        SHAPES.index = 0
 
-    ITERATIONS = 2022
-    for _, shape in zip(range(ITERATIONS), SHAPES):
-        gfbs.drop(shape, MOVES)
-        # gfbs.print_grid()
+        i = 0
+        p2_top_boost = 0
+        seen_cyclepos: dict[tuple[int, int], tuple[int, int]] = dict()
+        skip_target = None
+        while i < ITERATIONS:
+            shape = next(SHAPES)
 
-    print(f"Part 1: {gfbs.top_block + 1}")
+            gfbs.drop(shape, MOVES)
+            # gfbs.print_grid()
+
+            if (SHAPES.index, MOVES.index) in seen_cyclepos:
+                if skip_target is None:
+                    s1 = seen_cyclepos[SHAPES.index, MOVES.index]
+                    s2 = i, gfbs.top_block
+                    di, dh = s2[0] - s1[0], s2[1] - s1[1]
+                    skip_target = i + di
+                elif i == skip_target:
+                    s1 = seen_cyclepos[SHAPES.index, MOVES.index]
+                    s2 = i, gfbs.top_block
+                    di, dh = s2[0] - s1[0], s2[1] - s1[1]
+                    skip_loops = (ITERATIONS - i) // di
+                    if skip_loops:
+                        i += skip_loops * di
+                        p2_top_boost += skip_loops * dh
+                        print("WARP SPEED", skip_loops)
+            else:
+                seen_cyclepos[SHAPES.index, MOVES.index] = i, gfbs.top_block
+
+            i += 1
+        print(f"{NAME}: {gfbs.top_block + 1 + p2_top_boost}")
