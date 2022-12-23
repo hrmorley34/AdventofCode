@@ -71,17 +71,20 @@ class Grid:
                 return pos + dir
         return pos
 
-    def move_elves(self) -> None:
+    def move_elves(self) -> bool:
         proposed_positions: defaultdict[Position, set[Position]] = defaultdict(set)
         for pos in self.grid:
             d = self.consider_move(pos)
             if d != pos:
                 proposed_positions[d].add(pos)
+        any_moves = False
         for newpos, oldpositions in proposed_positions.items():
             if len(oldpositions) == 1:
                 self.grid.remove(oldpositions.pop())
                 self.grid.add(newpos)
+                any_moves = True
         self.movecount += 1
+        return any_moves
 
     def __init__(self) -> None:
         self.grid = set()
@@ -107,10 +110,14 @@ if __name__ == "__main__":
 
     g = Grid()
     g.parse_lines(PUZZLE_INPUT)
-    g.print()
     for _ in range(10):
         g.move_elves()
         # print(f"=== {g.movecount} ===")
         # g.print()
     i = g.get_empty_ground_tiles()
     print(f"Part 1: {i}")
+
+    while g.move_elves():
+        if g.movecount % 1_000 == 0:
+            print(g.movecount)
+    print(f"Part 2: {g.movecount}")
