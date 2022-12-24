@@ -1,8 +1,8 @@
 import re
-from dataclasses import dataclass
-from typing import NamedTuple, Iterable
 from functools import reduce
 from operator import or_
+from typing import Iterable, NamedTuple
+
 from puzzle_input import puzzle_input
 
 RE_VALVE = re.compile(
@@ -46,12 +46,28 @@ class Valve(NamedTuple):
         return mapping[self.name], self.rate
 
 
-@dataclass()
-class Token:
+class Token(NamedTuple):
     position: int
     open_valves: int
     released_pressure: int
     rem_time: int
+
+
+class MultiToken:
+    tokens: list[Token]
+    next_token: Token
+    open_valves: int
+    released_pressure: int
+
+    def __init__(self, tokens: list[Token]) -> None:
+        # sorted with longest time remaining first
+        self.tokens = sorted(tokens, key=lambda t: t.rem_time, reverse=True)
+        self.next_token = self.tokens[0]
+        self.open_valves = or_all(t.open_valves for t in self.tokens)
+        self.released_pressure = sum(t.released_pressure for t in self.tokens)
+
+    def subst_next_token(self, token: Token) -> "MultiToken":
+        return MultiToken([token] + self.tokens[1:])
 
 
 def get_shortest_paths(valves: dict[int, int]) -> dict[int, dict[int, int]]:
@@ -80,8 +96,7 @@ def recursive_depthfirst(
     local_dist = distances[initial.position]
     valvenames = or_all(rates)
     best_solution = initial
-    slncount = 0
-    for v in bit_iter(valvenames ^ initial.open_valves):
+    for v in bit_iter(valvenames & ~initial.open_valves):
         td = local_dist[v] + 1  # +1 for switching valve
         new_time = initial.rem_time - td
         new_pressure = initial.released_pressure + rates[v] * new_time
@@ -96,10 +111,36 @@ def recursive_depthfirst(
                 recursive_depthfirst(rates, distances, nt, depth=depth + 1),
                 key=lambda t: t.released_pressure,
             )
-        slncount += 1
-    if slncount == 0:  # initial.rem_time > 0:
-        # add the option of doing nothing else
-        best_solution = max(best_solution, initial, key=lambda t: t.released_pressure)
+
+    return best_solution
+
+
+def recursive_doubledepthfirst(
+    rates: dict[int, int],
+    distances: dict[int, dict[int, int]],
+    token: MultiToken,
+    depth: int = 0,
+) -> MultiToken:
+    initial = token.next_token
+    local_dist = distances[initial.position]
+    valvenames = or_all(rates)
+    best_solution = token
+    for progress, v in enumerate(bit_iter(valvenames & ~token.open_valves)):
+        td = local_dist[v] + 1  # +1 for switching valve
+        new_time = initial.rem_time - td
+        new_pressure = initial.released_pressure + rates[v] * new_time
+        if new_time < 0:
+            continue
+        nt = Token(v, initial.open_valves | v, new_pressure, new_time)
+        nmt = token.subst_next_token(nt)
+        best_solution = max(
+            best_solution,
+            recursive_doubledepthfirst(rates, distances, nmt, depth=depth + 1),
+            key=lambda t: t.released_pressure,
+        )
+
+        if depth <= 2:
+            print("  " * depth + str(progress))
 
     return best_solution
 
@@ -118,3 +159,8 @@ if __name__ == "__main__":
 
     pr = recursive_depthfirst(RATES, DISTANCES, INITIAL).released_pressure
     print(f"Part 1: {pr}")
+
+    INITIAL2 = MultiToken([Token(VALVEI_BY_NAME["AA"], 0, 0, 26)] * 2)
+
+    pr = recursive_doubledepthfirst(RATES, DISTANCES, INITIAL2).released_pressure
+    print(f"Part 2: {pr}")
