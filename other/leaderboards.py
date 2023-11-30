@@ -104,7 +104,10 @@ def make_parser():
         type=to_user_id,
         nargs="?",
         default=None,
-        help="display a single user (default: show all in a year or the leaderboard owner in one year)",
+        help=(
+            "display a single user (default: show all in a year "
+            "or the leaderboard owner in one year)"
+        ),
     )
     parser_pprint.add_argument(
         "-n",
