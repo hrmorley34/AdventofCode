@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import datetime
 from enum import Enum
-from requests.cookies import RequestsCookieJar
 from typing import Generator
+
+from requests.cookies import RequestsCookieJar
 
 from .api import LeaderboardYear, LeaderboardYearMember, MemberDays, is_day_unlocked
 from .types import ALL_DAYS, ALL_PARTS, Event, UserId, to_event

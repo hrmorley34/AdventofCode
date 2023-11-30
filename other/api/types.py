@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-
 __all__ = [
+    "EmptyDict",
     "UnixTimestamp",
     "UserId",
     "AnyUserId",
@@ -31,6 +31,12 @@ __all__ = [
 
 from typing import Dict, Literal, NewType, Optional, Sequence, TypedDict, Union, cast
 
+
+class EmptyDict(TypedDict):
+    pass
+
+
+emptydict = EmptyDict()
 
 UnixTimestamp = NewType("UnixTimestamp", int)
 

@@ -2,8 +2,6 @@ from __future__ import annotations
 
 import collections.abc
 import datetime
-import requests
-from requests.cookies import RequestsCookieJar
 from typing import (
     Any,
     Dict,
@@ -17,6 +15,9 @@ from typing import (
     overload,
 )
 from weakref import WeakValueDictionary
+
+import requests
+from requests.cookies import RequestsCookieJar
 
 from .types import (
     ALL_DAYS,
@@ -32,6 +33,7 @@ from .types import (
     Event,
     Part,
     UserId,
+    emptydict,
     to_day,
     to_day_int,
     to_event,
@@ -226,7 +228,10 @@ class MemberDays:
     def __getitem__(self, obj: slice) -> List[Dict[Part, DT_F_N]]:
         ...
 
-    def __getitem__(self, obj: Any):
+    def __getitem__(
+        self,
+        obj: Tuple[AnyDay] | Tuple[AnyDay, AnyPart | None] | int | str | float | slice,
+    ):
         if self.json is None:
             raise Missing
 
@@ -245,13 +250,7 @@ class MemberDays:
         day: Day
         part: Part | None = None
 
-        if isinstance(obj, collections.abc.Sequence):
-            if len(obj) > 2 or len(obj) < 1:
-                raise ValueError
-            day = to_day(obj[0])
-            if len(obj) >= 2:
-                part = to_optional_part(obj[1])
-        elif isinstance(obj, int):
+        if isinstance(obj, int):
             day = to_day(obj)
         elif isinstance(obj, (float, str)):
             os = str(obj).split(".")
@@ -259,6 +258,12 @@ class MemberDays:
                 raise ValueError
             day = to_day(os[0])
             part = to_part(os[1]) if len(os) >= 2 else None
+        elif isinstance(obj, collections.abc.Sequence):
+            if len(obj) > 2 or len(obj) < 1:
+                raise ValueError
+            day = to_day(obj[0])
+            if len(obj) >= 2:
+                part = to_optional_part(obj[1])
         else:
             raise ValueError
 
@@ -283,7 +288,7 @@ class MemberDays:
         else:
             d: Dict[Part, DT_F_N] = dict()
             for p in ALL_PARTS:
-                ts = parts.get(p, {}).get("get_star_ts")
+                ts = parts.get(p, emptydict).get("get_star_ts")
                 if ts is None:
                     d[p] = default
                 else:
@@ -301,7 +306,7 @@ class MemberDays:
         else:
             default = None
 
-        ts = self.json.get(day, {}).get(part, {}).get("get_star_ts")
+        ts = self.json.get(day, emptydict).get(part, emptydict).get("get_star_ts")
         if ts is None:
             return default
         else:

@@ -1,19 +1,19 @@
 from __future__ import annotations
 
 import argparse
-import colorama
-from dataclasses import dataclass
-from datetime import datetime
-from dotenv import load_dotenv
 import os
 import sys
+from dataclasses import dataclass
+from datetime import datetime
 from typing import Any, Callable
+
+import colorama
+from dotenv import load_dotenv
 
 from api import get_cookiejar
 from api.api import LeaderboardYear, LeaderboardYearMember
 from api.pretty import Length, iter_years, pretty_print_leaderboard, pretty_print_years
 from api.types import ALL_DAYS, Day, Event, Part, UserId, to_event, to_user_id
-
 
 load_dotenv()
 
