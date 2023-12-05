@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Iterable
+from typing import Collection, Iterable
 
 from puzzle_input import puzzle_input
 
@@ -25,19 +25,20 @@ class MapLine:
     def from_line(cls, line: str):
         return cls(*map(int, line.split()))
 
-    def map(self, value: int) -> int:
+    def map(self, value: int) -> int | None:
         if self.src <= value < self.src + self.range:
-            value += -self.src + self.dest
-        return value
+            return value - self.src + self.dest
+        return None
 
-    def map_r(self, value: Range2) -> tuple[Range2 | None, list[Range2]]:
-        if self.src + self.range <= value.start:
-            return (None, [value])
-        elif value.start + value.length <= self.src:
-            return (None, [value])
-
+    def map_r(self, value: Range2) -> tuple[Collection[Range2], Collection[Range2]]:
         left = value.start
         right = value.start + value.length
+
+        if self.src + self.range <= left:
+            return ((), (value,))  # unaffected
+        elif right <= self.src:
+            return ((), (value,))  # unaffected
+
         outer_ranges: list[Range2] = []
         if left < self.src:
             new_left = self.src
@@ -48,7 +49,7 @@ class MapLine:
             outer_ranges.append(Range2(new_right, right - new_right))
             right = new_right
         middle_range = Range2(left - self.src + self.dest, right - left)
-        return middle_range, outer_ranges
+        return (middle_range,), outer_ranges
 
 
 @dataclass
@@ -68,18 +69,16 @@ class Mapping:
     def map(self, value: int) -> int:
         for m in self.maps:
             new = m.map(value)
-            if new != value:
+            if new is not None:
                 return new
         return value
 
-    def map_r(self, values: list[Range2]) -> Iterable[Range2]:
-        values = values.copy()
+    def map_r(self, values: Iterable[Range2]) -> Iterable[Range2]:
         for m in self.maps:
             new_values: list[Range2] = []
-            while values:
-                middle, sides = m.map_r(values.pop())
-                if middle is not None:
-                    yield middle
+            for r in values:
+                middle, sides = m.map_r(r)
+                yield from middle
                 new_values.extend(sides)
             values = new_values
             if not values:
@@ -94,19 +93,20 @@ if __name__ == "__main__":
 
     assert seeds.startswith("seeds: "), seeds
     seeds = seeds[len("seeds: ") :]
+    seeds_i = list(map(int, seeds.split()))
 
-    stat_i = map(int, seeds.split())
+    stat_i = seeds_i
     for m in mappings:
         stat_i = map(m.map, stat_i)
         # stat_i = list(stat_i)
         # print(stat_i)
-    locs = list(stat_i)
+    locs = stat_i
     print("Part 1:", min(locs))
 
-    stat_i = list(Range2.from_seeds(map(int, seeds.split())))
+    stat_i = Range2.from_seeds(seeds_i)
     # print(stat_i)
     for m in mappings:
-        stat_i = list(m.map_r(stat_i))
+        stat_i = m.map_r(stat_i)
         # print(stat_i)
     locs = stat_i
     print("Part 2:", min(r.start for r in locs))
