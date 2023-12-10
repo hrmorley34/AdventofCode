@@ -94,7 +94,6 @@ def flood(
             npos = (x + dx, y + dy)
             if not in_range(npos, dim):
                 return False
-                continue
             if npos in s:
                 continue
             elif npos in wall:
@@ -136,13 +135,10 @@ def fill_sides(
             lpos = (pos[0] + ldx, pos[1] + ldy)
             if in_range(lpos, dim) and lpos not in walls:
                 left_positions.add(lpos)
-                # pi_editable[lpos[1]][lpos[0]] = "A"
         for rdx, rdy in join_up(prdpos, brdpos):
             rpos = (pos[0] + rdx, pos[1] + rdy)
             if in_range(rpos, dim) and rpos not in walls:
                 right_positions.add(rpos)
-                # pi_editable[rpos[1]][rpos[0]] = "B"
-        # print_pie()
 
         pos, newp = newp, true_connections[newp]
         pldpos, prdpos = bldpos, brdpos
