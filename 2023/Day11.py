@@ -5,8 +5,8 @@ class GalaxyMap:
     map: list[str]
 
     galaxies: list[tuple[int, int]]
-    empty_rows: list[int]
-    empty_cols: list[int]
+    empty_rows: list[bool]
+    empty_cols: list[bool]
 
     def __init__(self, map: list[str]) -> None:
         self.map = map
@@ -15,13 +15,11 @@ class GalaxyMap:
         self.empty_rows = self.find_empty_rows()
         self.empty_cols = self.find_empty_columns()
 
-    def find_empty_rows(self) -> list[int]:
-        return [i for i, r in enumerate(self.map) if r.strip(".") == ""]
+    def find_empty_rows(self) -> list[bool]:
+        return [r.strip(".") == "" for r in self.map]
 
-    def find_empty_columns(self) -> list[int]:
-        return [
-            i for i in range(len(self.map[0])) if all(row[i] == "." for row in self.map)
-        ]
+    def find_empty_columns(self) -> list[bool]:
+        return [all(row[i] == "." for row in self.map) for i in range(len(self.map[0]))]
 
     def find_galaxies(self) -> list[tuple[int, int]]:
         return [
@@ -34,13 +32,11 @@ class GalaxyMap:
     def find_distance(
         self, point1: tuple[int, int], point2: tuple[int, int], spread: int = 2
     ) -> int:
-        dist = abs(point2[0] - point1[0]) + abs(point2[1] - point1[1])
-        for y in range(min(point1[1], point2[1]) + 1, max(point1[1], point2[1])):
-            if y in self.empty_rows:
-                dist += spread - 1
-        for x in range(min(point1[0], point2[0]) + 1, max(point1[0], point2[0])):
-            if x in self.empty_cols:
-                dist += spread - 1
+        minx, maxx = sorted([point1[0], point2[0]])
+        miny, maxy = sorted([point1[1], point2[1]])
+        dist = (maxx - minx) + (maxy - miny)
+        dist += (spread - 1) * sum(self.empty_cols[minx + 1 : maxx])
+        dist += (spread - 1) * sum(self.empty_rows[miny + 1 : maxy])
         return dist
 
     def sum_distances(self, spread: int = 2) -> int:
