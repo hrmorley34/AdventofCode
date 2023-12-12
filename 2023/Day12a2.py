@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from functools import lru_cache
 
 from puzzle_input import puzzle_input
 
@@ -32,64 +33,59 @@ class SpringRow:
     def with_region(
         self, index: int, length: int, replace_qs: int | None = None
     ) -> "SpringRow | None":
+        assert length == self.groups[0]
+
         if index + length > len(self.row):
             return None
-        new_row = list(self.row)
+
         if replace_qs is not None:
             for i in range(replace_qs, index):
-                if new_row[i] == "?":
-                    new_row[i] = "."
+                if self.row[i] == "#":
+                    return None
         for offset in range(length):
-            if new_row[index + offset] == "#":
-                continue
-            elif new_row[index + offset] == "?":
-                new_row[index + offset] = "#"
-            else:
-                assert new_row[index + offset] == "."
+            if self.row[index + offset] == ".":
                 return None
-        if index + length < len(new_row):  # ie !=
-            if new_row[index + length] == "#":
+        if index + length < len(self.row):  # ie !=
+            if self.row[index + length] == "#":
                 return None
-            elif new_row[index + length] == "?":
-                new_row[index + length] = "."
-            assert new_row[index + length] == "."
-        return SpringRow("".join(new_row), self.groups)
+        return SpringRow(self.row[index + length + 1 :], self.groups[1:])
 
     def without_region(self, index: int, length: int) -> "SpringRow | None":
         if index + length > len(self.row):
             return None
-        new_row = list(self.row)
         for offset in range(length):
-            if new_row[index + offset] == "#":
+            if self.row[index + offset] == "#":
                 return None
-            elif new_row[index + offset] == "?":
-                new_row[index + offset] = "."
-            assert new_row[index + offset] == "."
-        return SpringRow("".join(new_row), self.groups)
+        return SpringRow(self.row[index + length :], self.groups)
 
-    def get_possible(self, rindex: int = 0, gindex: int = 0) -> int:
+    @lru_cache
+    def get_possible(self) -> int:
         # print("GET_POSSIBLE", self, rindex, gindex)
-        if gindex >= len(self.groups):
-            r = self.without_region(rindex, len(self.row) - rindex)
-            if r is not None and r.get_match():
-                # print(self)
-                return True
-            return False
-        target_length = self.groups[gindex]
-        while rindex < len(self.row) and self.row[rindex] == ".":
-            rindex += 1
-        if rindex >= len(self.row):
+        if not len(self.groups):
+            return "#" not in self.row
+        if not len(self.row):
             return 0
-        elif self.row[rindex] == "#":
+
+        rindex = 0
+        if self.row[0] == ".":
+            rindex = 0
+            while rindex < len(self.row) and self.row[rindex] == ".":
+                rindex += 1
+            if rindex >= len(self.row):
+                return 0
+            return SpringRow(self.row[rindex:], self.groups).get_possible()
+
+        target_length = self.groups[0]
+        if self.row[rindex] == "#":
             r = self.with_region(rindex, target_length)
             if r is None:
                 return 0
-            return r.get_possible(rindex + target_length + 1, gindex + 1)
+            return r.get_possible()
 
         assert self.row[rindex] == "?"
         replace_qs = rindex
         new_starts: list[int] = []
-        max_rindex = len(self.row) - sum(1 + i for i in self.groups[gindex + 1 :])
+        max_rindex = len(self.row) - sum(1 + i for i in self.groups[1:])
         while rindex < max_rindex and self.row[rindex] != "#":
             if self.row[rindex] == "?":
                 new_starts.append(rindex)
@@ -101,13 +97,9 @@ class SpringRow:
             new_starts.append(rindex)
 
         new_lines = [
-            (ri, self.with_region(ri, target_length, replace_qs)) for ri in new_starts
+            self.with_region(ri, target_length, replace_qs) for ri in new_starts
         ]
-        return sum(
-            sr.get_possible(ri + target_length + 1, gindex + 1)
-            for ri, sr in new_lines
-            if sr is not None
-        )
+        return sum(sr.get_possible() for sr in new_lines if sr is not None)
 
 
 if __name__ == "__main__":
@@ -115,11 +107,5 @@ if __name__ == "__main__":
     springs = list(map(SpringRow.from_line, PUZZLE_INPUT))
     print("Part 1:", sum(sr.get_possible() for sr in springs))
 
-    # Incredibly slow
-    # springs2 = list(map(SpringRow.from_line_expand, PUZZLE_INPUT))
-    # total = 0
-    # print(f" 0/{len(springs2):2}")
-    # for i, sr in enumerate(springs2):
-    #     total += sr.get_possible()
-    #     print(f"{i+1:2}/{len(springs2):2}")
-    # print("Part 2:", total)
+    springs2 = list(map(SpringRow.from_line_expand, PUZZLE_INPUT))
+    print("Part 2:", sum(sr.get_possible() for sr in springs2))
