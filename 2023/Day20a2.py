@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from collections import Counter
+from math import lcm
 
 from puzzle_input import puzzle_input
 
@@ -93,16 +94,25 @@ class Output(Module):
 
 
 class Rx(Module):
+    edge: bool
     delivered: bool
+    srces: list[str]
 
-    def __init__(self) -> None:
+    def __init__(self, edge: bool = False) -> None:
         super().__init__("rx", [])
+        self.edge = edge
         self.delivered = False
+        self.srces = []
 
     def send(self, src: str, pulse: bool) -> list[tuple[str, bool]]:
-        if not pulse:
+        if self.edge == pulse:
             self.delivered = True
+        # else:
+        #     print("Anti-rx!")
         return []
+
+    def add_src(self, src: str) -> None:
+        self.srces.append(src)
 
 
 def make_modules(lines: list[str]) -> dict[str, Module]:
@@ -152,24 +162,76 @@ def get_rx_delivered(modules: dict[str, Module]) -> bool:
     return rx.delivered
 
 
+def get_submodule(
+    modules: dict[str, Module], start: str, end: str
+) -> dict[str, Module]:
+    submodules: dict[str, Module] = {}
+    m_checks: list[str] = [start]
+    while m_checks:
+        mn = m_checks.pop(0)
+        if mn == end or mn in submodules:
+            continue
+        submodules[mn] = m = modules[mn]
+        m_checks.extend(m.dest)
+    return submodules
+
+
+def do_by_submodules(modules: dict[str, Module]) -> int:
+    BC = modules["broadcaster"]
+    assert isinstance(BC, Broadcaster)
+    RX = modules["rx"]
+    assert isinstance(RX, Rx)
+    assert len(RX.srces) == 1
+    END = RX.srces[0]
+    ENDM = modules[END]
+    assert isinstance(ENDM, Conjunction)
+
+    sms: dict[str, dict[str, Module]] = {}
+    for d in BC.dest:
+        sms[d] = sm = get_submodule(modules, d, END)
+        sm["broadcaster"] = Broadcaster([d])
+        sm[END] = cj = Conjunction(END, ["rx"])
+        sm["rx"] = Rx()
+
+        for m in sm.values():
+            if END in m.dest:
+                cj.add_src(m.name)
+
+    time = 1
+    for sm in sms.values():
+        seen_states: STATEL = [(0, get_state(sm), 0, 0)]
+
+        i = 0
+        rxt = -1
+        while True:
+            i += 1
+            press_button(sm)
+
+            if rxt < 0 and get_rx_delivered(sm):
+                rxt = i
+                break
+
+            pi, _, _ = check_state(get_state(sm), seen_states)
+            if pi is not None:
+                break
+
+        time = lcm(time, i)
+    return time
+
+
 if __name__ == "__main__":
     PUZZLE_INPUT = puzzle_input().splitlines()
     modules = make_modules(PUZZLE_INPUT)
 
-    # Far too slow for part 2
     seen_states: STATEL = [(0, get_state(modules), 0, 0)]
     hi = lo = 0
     i = 0
     rxd = False
-    while i < 1000 or not rxd:
+    while i < 1000:
         i += 1
         dhi, dlo = press_button(modules)
         hi += dhi
         lo += dlo
-
-        if not rxd and get_rx_delivered(modules):
-            print("Part 2:", i)
-            rxd = True
 
         pi, phi, plo = check_state(get_state(modules), seen_states)
         if pi is not None:
@@ -181,8 +243,7 @@ if __name__ == "__main__":
                 hi += dhi
                 lo += dlo
 
-        if i == 1000:
-            print("Part 1:", hi, lo, hi * lo)
+    print("Part 1:", hi * lo)
 
-        if i % 10**5 == 0 and len(str(i).rstrip("0")) <= 2:
-            print(i)
+    modules = make_modules(PUZZLE_INPUT)
+    print("Part 2:", do_by_submodules(modules))
