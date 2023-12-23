@@ -16,6 +16,9 @@ class Node:
     def __hash__(self) -> int:
         return hash(self.pos)
 
+    def __repr__(self) -> str:
+        return f"<Node {self.pos} with {len(self.neighbours)} neighbours>"
+
 
 @dataclass
 class SearchState:
@@ -34,7 +37,7 @@ class Trail:
     end: Node
 
     @classmethod
-    def from_lines(cls, lines: list[str]):
+    def from_lines(cls, lines: list[str], include_slopes: bool = True):
         assert lines[0].count(".") == 1
         assert lines[-1].count(".") == 1
         assert all(line[0] == "#" and line[-1] == "#" for line in lines)
@@ -67,9 +70,9 @@ class Trail:
                     [False, True, False, True],
                 ):
                     # straight line
-                    if c == "<":
+                    if include_slopes and c == "<":
                         last_right = None
-                    elif c == ">":
+                    elif include_slopes and c == ">":
                         next_left = None
                     continue
                 else:
@@ -98,9 +101,9 @@ class Trail:
 
                 n = nodes_by_pos.get((x, y))
                 if n is None:
-                    if c == "^":
+                    if include_slopes and c == "^":
                         last_down = None
-                    elif c == "v":
+                    elif include_slopes and c == "v":
                         next_up = None
                     continue
 
@@ -132,9 +135,33 @@ class Trail:
                     )
         return end_states[-1].distance
 
+    def collapse_nodes(self) -> None:
+        print(f"Collapsing {len(self.nodes)} nodes...")
+        known_nodes = set(self.nodes)
+        while known_nodes:
+            node = known_nodes.pop()
+            if len(node.neighbours) == 2:
+                (left, d_left), (right, d_right) = node.neighbours.items()
+                # left and right aren't literal here, they could be any two directions
+                if node in left.neighbours:
+                    d = left.neighbours.pop(node)
+                    assert d == d_left
+                    left.neighbours[right] = d + d_right
+                if node in right.neighbours:
+                    d = right.neighbours.pop(node)
+                    assert d == d_right
+                    right.neighbours[left] = d_left + d
+                self.nodes.remove(node)
+                node.neighbours = None  # type: ignore # prevents reuse
+        print(f"Got {len(self.nodes)} nodes.")
+
 
 if __name__ == "__main__":
     PUZZLE_INPUT = puzzle_input().splitlines()
-    trail = Trail.from_lines(PUZZLE_INPUT)
 
+    trail = Trail.from_lines(PUZZLE_INPUT)
     print("Part 1:", trail.find_longest_path())
+
+    trail = Trail.from_lines(PUZZLE_INPUT, include_slopes=False)
+    trail.collapse_nodes()
+    print("Part 2:", trail.find_longest_path())
