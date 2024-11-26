@@ -18,7 +18,7 @@ from api.types import ALL_DAYS, Day, Event, Part, UserId, to_event, to_user_id
 load_dotenv()
 
 
-SESSION: str = os.environ["ADVENTOFCODE_SESSION"]
+SESSION: str = os.environ.get("ADVENTOFCODE_SESSION", "")
 COOKIEJAR = get_cookiejar(SESSION)
 
 
@@ -301,7 +301,12 @@ def main_timeline_row(
             s += e.member.leaderboardyear.event.rjust(4) + "."
         s += e.day.rjust(2, " ") + "." + e.part
     s += " "
+    colour_name = colour and (e.day, e.part) == ("25", "2")
+    if colour_name:
+        s += colorama.Fore.LIGHTYELLOW_EX
     s += e.member.full_name
+    if colour_name:
+        s += colorama.Fore.RESET
     return s
 
 
@@ -329,5 +334,11 @@ def main_timeline(args: TimelineNamespace):
 if __name__ == "__main__":
     parser = make_parser()
     args = parser.parse_args(namespace=Namespace())
+    if not SESSION and args.subparser != main_default:
+        print(
+            "No session token given - remember to set ADVENTOFCODE_SESSION.",
+            file=sys.stderr,
+        )
+        exit(1)
     args.colour = parse_colour(args.rawcolour)
     args.subparser(args)
