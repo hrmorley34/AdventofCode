@@ -1,7 +1,10 @@
+import sys
+
+
 def puzzle_input() -> str:
     t = ""
     try:
-        t = input("> ")
+        t = input("> " if sys.stdin.isatty() else "")
         while True:
             t += "\n" + input()
     except KeyboardInterrupt:

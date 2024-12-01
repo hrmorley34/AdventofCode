@@ -1,0 +1,14 @@
+{
+    "editor.formatOnSave": true,
+    "terminal.integrated.profiles.windows": {
+        "PowerShell": {
+            "source": "PowerShell",
+            "icon": "terminal-powershell",
+            "args": [
+                "-NoExit",
+                "-Command",
+                "function fi { py ${workspaceFolder}\\other\\fetch_input.py $args }"
+            ]
+        }
+    }
+}
