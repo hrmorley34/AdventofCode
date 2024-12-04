@@ -18,39 +18,56 @@ DIRECTIONS = [
     (0, 1),
     (1, 1),
     (1, 0),
-    (1, -1),
-    (0, -1),
-    (-1, -1),
-    (-1, 0),
+    # (1, -1),
+    # (0, -1),
+    # (-1, -1),
+    # (-1, 0),
 ]
 
 
 def count_occurrences(grid: list[str], word: str) -> int:
+    WORDS = {word, word[::-1]}
     count = 0
     for y in range(len(grid)):
         for x in range(len(grid[0])):
             for dx, dy in DIRECTIONS:
-                count += grid_slice(grid, x, y, dx, dy, len(word)) == word
+                count += grid_slice(grid, x, y, dx, dy, len(word)) in WORDS
     return count
 
 
-X_DIRECTIONS = [
-    ((-1, 1), (1, 1)),
-    ((1, 1), (1, -1)),
-    ((1, -1), (-1, -1)),
-    ((-1, -1), (-1, 1)),
+DIAGONALS = [
+    (-1, 1),
+    (1, 1),
+    (1, -1),
+    (-1, -1),
 ]
 
 
 def count_x_occurrences(grid: list[str]) -> int:
     count = 0
-    for y in range(len(grid)):
-        for x in range(len(grid[0])):
-            for (dx1, dy1), (dx2, dy2) in X_DIRECTIONS:
-                count += (
-                    grid_slice(grid, x - dx1, y - dy1, dx1, dy1, 3) == "MAS"
-                    and grid_slice(grid, x - dx2, y - dy2, dx2, dy2, 3) == "MAS"
-                )
+    for y in range(1, len(grid) - 1):
+        for x in range(1, len(grid[0]) - 1):
+            if grid[y][x] != "A":
+                continue
+            # count += (
+            #     # sum == 0 means no MASes
+            #     # sum == 1 means only one diagonal
+            #     # sum == 2 means two neighbouring diagonals, because it cannot be
+            #     # opposite diagonals simultaneously
+            #     sum(
+            #         grid[y - dy][x - dx] == "M" and grid[y + dy][x + dx] == "S"
+            #         for dx, dy in X_DIRECTIONS
+            #     )
+            #     == 2
+            # )
+            diagonals = [grid[y + dy][x + dx] for dx, dy in DIAGONALS]
+            count += (
+                set(diagonals) == {"M", "S"}
+                and diagonals[0] != diagonals[2]
+                and diagonals[1] != diagonals[3]
+                # both diagonals contain an M and an S (so must be MAS forwards
+                # or backwards)
+            )
     return count
 
 
