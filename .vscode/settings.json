@@ -7,7 +7,7 @@
             "args": [
                 "-NoExit",
                 "-Command",
-                "function fi { py ${workspaceFolder}\\other\\fetch_input.py $args }"
+                ". ${workspaceFolder}\\other\\shortcuts.ps1"
             ]
         }
     }
