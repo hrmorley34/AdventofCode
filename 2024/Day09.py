@@ -28,7 +28,8 @@ def get_regions(s: str) -> Iterator[Region]:
 
 if __name__ == "__main__":
     PUZZLE_INPUT = input("> ")
-    REGIONS = get_regions(PUZZLE_INPUT)
+    REGIONS = list(get_regions(PUZZLE_INPUT))
+
     BLOCKS = list(
         chain.from_iterable(
             ([r.id if isinstance(r, File) else None] * r.size) for r in REGIONS
@@ -41,3 +42,35 @@ if __name__ == "__main__":
                 break
             BLOCKS[i], BLOCKS[swap_index] = BLOCKS[swap_index], BLOCKS[i]
     print("Part 1:", sum(i * f for i, f in enumerate(BLOCKS) if f is not None))
+
+    i = len(REGIONS)
+    while i > 0:
+        i -= 1
+        if isinstance(REGIONS[i], File):
+            for swap_index in range(i):
+                if REGIONS[swap_index].size >= REGIONS[i].size and not isinstance(
+                    REGIONS[swap_index], File
+                ):
+                    break  # find first empty space
+            else:
+                continue  # nowhere to swap into
+            if swap_index >= i:
+                continue
+            extra_space = REGIONS[swap_index].size - REGIONS[i].size
+            REGIONS[i], REGIONS[swap_index] = REGIONS[swap_index], REGIONS[i]
+            if extra_space:
+                REGIONS[i].size -= extra_space  # the now-empty region
+                REGIONS.insert(swap_index + 1, Region(extra_space))
+                i += 1  # handle the existance of an extra region below
+    print(
+        "Part 2:",
+        sum(
+            i * f
+            for i, f in enumerate(
+                chain.from_iterable(
+                    ([r.id if isinstance(r, File) else None] * r.size) for r in REGIONS
+                )
+            )
+            if f is not None
+        ),
+    )
