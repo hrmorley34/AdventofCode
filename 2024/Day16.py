@@ -1,4 +1,5 @@
 from collections import defaultdict
+from collections.abc import Generator
 from queue import PriorityQueue
 from typing import Self
 
@@ -6,6 +7,7 @@ from puzzle_input import puzzle_input
 
 PosDir = tuple[int, int, int]
 Nodes = dict[PosDir, dict[PosDir, int]]
+Path = set[tuple[int, int]]
 DIRECTIONS = [(1, 0), (0, 1), (-1, 0), (0, -1)]
 EAST = 0
 SCORE_MOVE = 1
@@ -63,8 +65,51 @@ class Maze:
                     q.put((w + weight, neighbour))
         raise ValueError
 
+    def explore_all(self, target: int) -> Generator[Path, None, None]:
+        # Dijkstra
+        seen_nodes: dict[PosDir, int] = {}
+        q: PriorityQueue[tuple[int, PosDir, Path, bool]] = PriorityQueue()
+        q.put((0, self.start, {self.start[:2]}, False))
+        it_count = 0
+        while q.qsize():
+            w, pd, path, last_rot = q.get()
+            if pd[:2] == self.end:
+                yield path
+                continue
+            elif w > target:
+                continue
+            if pd in seen_nodes:
+                if seen_nodes[pd] < w:
+                    continue
+            else:
+                seen_nodes[pd] = w
+            for neighbour, weight in self.nodes[pd].items():
+                if w + weight > target:
+                    continue
+                if neighbour[:2] not in path or (
+                    not last_rot and neighbour[:2] == pd[:2]
+                ):
+                    q.put(
+                        (
+                            w + weight,
+                            neighbour,
+                            path | {neighbour[:2]},
+                            neighbour[:2] == pd[:2],  # disallow two rotations in a row
+                        )
+                    )
+            it_count += 1
+            if it_count % 250_000 == 0:
+                print(it_count, w, q.qsize())
+
 
 if __name__ == "__main__":
     PUZZLE_INPUT = puzzle_input().splitlines()
     MAZE = Maze.from_lines(PUZZLE_INPUT)
-    print("Part 1:", MAZE.explore())
+
+    distance = MAZE.explore()
+    print("Part 1:", distance)
+
+    best_tiles: set[tuple[int, int]] = set()
+    for path in MAZE.explore_all(distance):
+        best_tiles.update(path)
+    print("Part 2:", len(best_tiles))
