@@ -1,13 +1,14 @@
 from collections.abc import Generator, Iterable
 from dataclasses import dataclass
-from itertools import chain, permutations, product
+from functools import lru_cache
+from itertools import permutations, product
 
 from puzzle_input import puzzle_input
 
 DIRECTIONS = {"^": (0, -1), ">": (1, 0), "v": (0, 1), "<": (-1, 0)}
 
 
-@dataclass
+@dataclass(frozen=True)
 class Moves:
     dx: int
     dy: int
@@ -38,10 +39,20 @@ class Moves:
         return map("".join, product(*(m.get_sequences() for m in moves)))
 
 
-@dataclass
+@dataclass(frozen=True)
 class Keypad:
-    grid: list[list[str | None]]
+    grid: tuple[tuple[str | None, ...], ...]
     start: tuple[int, int]
+
+    @classmethod
+    def from_grid(cls, grid: Iterable[Iterable[str | None]]) -> "Keypad":
+        g = tuple(map(tuple, grid))
+        return cls(
+            grid=g,
+            start=next(
+                iter((line.index("A"), i) for i, line in enumerate(g) if "A" in line)
+            ),
+        )
 
     def run_input(self, cmd: str) -> str:
         out = ""
@@ -62,6 +73,7 @@ class Keypad:
             assert self.grid[y][x] is not None
         return out
 
+    @lru_cache(None)
     def find_button(self, button: str) -> tuple[int, int]:
         return next(
             iter(
@@ -71,7 +83,7 @@ class Keypad:
             )
         )
 
-    def moves(self, desired_output: str) -> Generator[Moves, None, None]:
+    def _moves(self, desired_output: str) -> Generator[Moves, None, None]:
         x, y = self.start
         for oc in desired_output:
             if oc != self.grid[y][x]:
@@ -87,44 +99,56 @@ class Keypad:
             else:
                 yield Moves(0, 0)
 
+    @lru_cache(2**5)
+    def moves(self, desired_output: str) -> list[Moves]:
+        return list(self._moves(desired_output))
 
-KEYPAD_NUMERIC = Keypad(
+
+KEYPAD_NUMERIC = Keypad.from_grid(
     [
         list("789"),
         list("456"),
         list("123"),
         [None, "0", "A"],
-    ],
-    (2, 3),
+    ]
 )
-KEYPAD_DIRECTION = Keypad(
+KEYPAD_DIRECTION = Keypad.from_grid(
     [
         [None, "^", "A"],
         ["<", "v", ">"],
-    ],
-    (2, 0),
+    ]
 )
-KEYPADS = [KEYPAD_NUMERIC] + [KEYPAD_DIRECTION] * 2
+KEYPADS1 = [KEYPAD_NUMERIC] + [KEYPAD_DIRECTION] * 2
 # no need for third KEYPAD_DIRECTION - we use this directly
+KEYPADS2 = [KEYPAD_NUMERIC] + [KEYPAD_DIRECTION] * 25
 
 
-def best_multistep(desired_output: str) -> str:
-    scs = [desired_output]
-    for kp in KEYPADS:
-        mvs = list(kp.moves(sc) for sc in scs)
-        scs = list(chain.from_iterable(Moves.possible_scripts(mv) for mv in mvs))
-    return min(scs, key=len)
+@lru_cache(2**7)
+def _best_multistep(desired_output: str, keypads: tuple[Keypad, ...]) -> int:
+    if not keypads:
+        return len(desired_output)
+    kp = keypads[0]
+    moves = kp.moves(desired_output)
+    parts: list[int] = []
+    for move in moves:
+        parts.append(
+            min(_best_multistep(seq, keypads[1:]) for seq in move.get_sequences())
+        )
+    return sum(parts)
 
 
-def test_multistep(presses: str) -> str:
-    for kp in reversed(KEYPADS):
-        presses = kp.run_input(presses)
-    return presses
+def best_multistep(desired_output: str, keypads: Iterable[Keypad]) -> int:
+    return _best_multistep(desired_output, tuple(keypads))
 
 
 if __name__ == "__main__":
     PUZZLE_INPUT = puzzle_input().splitlines()
 
-    # for s in PUZZLE_INPUT:
-    #     print(s + ": " + best_multistep(s))
-    print("Part 1:", sum(int(s[:-1]) * len(best_multistep(s)) for s in PUZZLE_INPUT))
+    print(
+        "Part 1:",
+        sum(int(s[:-1]) * best_multistep(s, KEYPADS1) for s in PUZZLE_INPUT),
+    )
+    print(
+        "Part 2:",
+        sum(int(s[:-1]) * best_multistep(s, KEYPADS2) for s in PUZZLE_INPUT),
+    )
