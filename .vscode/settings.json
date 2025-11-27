@@ -10,5 +10,9 @@
                 ". ${workspaceFolder}\\other\\shortcuts.ps1"
             ]
         }
-    }
+    },
+    "github.copilot.enable": {
+        "*": false
+    },
+    "github.copilot.editor.enableCodeActions": false
 }
