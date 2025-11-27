@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import collections.abc
-import datetime
+from datetime import datetime, timedelta, timezone
 from typing import (
     Any,
     Dict,
@@ -48,9 +48,9 @@ class Missing(Exception):
 
 
 class LeaderboardYear:
-    _YEAROBJECTS: MutableMapping[
-        tuple[UserId, Event], LeaderboardYear
-    ] = WeakValueDictionary()
+    _YEAROBJECTS: MutableMapping[tuple[UserId, Event], LeaderboardYear] = (
+        WeakValueDictionary()
+    )
     id: UserId
     event: Event
     json: Optional[ApiLeaderboard] = None
@@ -188,7 +188,7 @@ class LeaderboardYearMember:
         )
 
 
-DT_F_N = Union[datetime.datetime, Literal[False], None]
+DT_F_N = Union[datetime, Literal[False], None]
 
 
 class MemberDays:
@@ -213,20 +213,13 @@ class MemberDays:
     @overload
     def __getitem__(
         self, obj: Tuple[AnyDay] | Tuple[AnyDay, None] | int
-    ) -> Dict[Part, DT_F_N]:
-        ...
-
+    ) -> Dict[Part, DT_F_N]: ...
     @overload
-    def __getitem__(self, obj: Tuple[AnyDay, AnyPart]) -> DT_F_N:
-        ...
-
+    def __getitem__(self, obj: Tuple[AnyDay, AnyPart]) -> DT_F_N: ...
     @overload
-    def __getitem__(self, obj: str | float) -> Dict[Part, DT_F_N] | DT_F_N:
-        ...
-
+    def __getitem__(self, obj: str | float) -> Dict[Part, DT_F_N] | DT_F_N: ...
     @overload
-    def __getitem__(self, obj: slice) -> List[Dict[Part, DT_F_N]]:
-        ...
+    def __getitem__(self, obj: slice) -> List[Dict[Part, DT_F_N]]: ...
 
     def __getitem__(
         self,
@@ -292,7 +285,7 @@ class MemberDays:
                 if ts is None:
                     d[p] = default
                 else:
-                    d[p] = datetime.datetime.fromtimestamp(ts)
+                    d[p] = datetime.fromtimestamp(ts, timezone.utc)
             return d
 
     def get_day_part(self, day: AnyDay, part: AnyPart) -> DT_F_N:
@@ -310,7 +303,7 @@ class MemberDays:
         if ts is None:
             return default
         else:
-            return datetime.datetime.fromtimestamp(ts)
+            return datetime.fromtimestamp(ts, timezone.utc)
 
     def __iter__(self) -> Generator[Dict[Part, DT_F_N], None, None]:
         for d in ALL_DAYS:
@@ -320,14 +313,15 @@ class MemberDays:
         return {d: self.get_day(d) for d in ALL_DAYS}
 
 
-UNLOCK_TIME = datetime.timedelta(hours=5)
+UNLOCK_TZ = timezone(timedelta(hours=-5))
+
+
+def get_unlock_time(year: AnyEvent, day: AnyDay) -> datetime:
+    return datetime(int(year), 12, to_day_int(day), 0, tzinfo=UNLOCK_TZ)
 
 
 def is_day_unlocked(year: AnyEvent, day: AnyDay) -> bool:
-    return (
-        datetime.datetime(int(year), 12, to_day_int(day)) + UNLOCK_TIME
-        <= datetime.datetime.utcnow()
-    )
+    return get_unlock_time(year, day) <= datetime.now(UNLOCK_TZ)
 
 
 def get_cookiejar(session_id: str) -> RequestsCookieJar:

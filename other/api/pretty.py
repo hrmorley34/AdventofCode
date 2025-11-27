@@ -1,12 +1,18 @@
 from __future__ import annotations
 
-import datetime
+from datetime import date, datetime
 from enum import Enum
 from typing import Generator
 
 from requests.cookies import RequestsCookieJar
 
-from .api import LeaderboardYear, LeaderboardYearMember, MemberDays, is_day_unlocked
+from .api import (
+    UNLOCK_TZ,
+    LeaderboardYear,
+    LeaderboardYearMember,
+    MemberDays,
+    is_day_unlocked,
+)
 from .types import ALL_DAYS, ALL_PARTS, Event, UserId, to_event
 
 
@@ -89,9 +95,9 @@ def leaderboard_line_pprint(
         return "[{}{: 3}*{}]".format(cstar, member.stars, creset)
 
 
-def iter_years(until: datetime.date | None = None) -> Generator[Event, None, None]:
+def iter_years(until: date | None = None) -> Generator[Event, None, None]:
     if until is None:
-        until = datetime.date.today()
+        until = datetime.now(UNLOCK_TZ).date()
     for iyear in range(2015, until.year):
         yield to_event(iyear)
     if until.month >= 12:

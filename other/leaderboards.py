@@ -240,6 +240,11 @@ class TimelineEvent:
     day: Day
     part: Part
 
+    @property
+    def localtime(self) -> datetime:
+        "Return the time, converted into the local timezone"
+        return self.time.astimezone()
+
 
 def main_timeline_events(leaderboard: UserId, year: Event) -> set[TimelineEvent]:
     lb = LeaderboardYear(leaderboard, year)
@@ -277,7 +282,7 @@ TIMELINE_STRFTIME_COLOUR = (
 def main_timeline_row(
     e: TimelineEvent, colour: bool = False, include_year: bool = False
 ) -> str:
-    s = e.time.strftime(TIMELINE_STRFTIME_COLOUR if colour else TIMELINE_STRFTIME)
+    s = e.localtime.strftime(TIMELINE_STRFTIME_COLOUR if colour else TIMELINE_STRFTIME)
     s += " "
     if colour:
         if include_year:

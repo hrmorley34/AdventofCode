@@ -1,11 +1,11 @@
 import os
 import sys
-from datetime import datetime, timedelta, timezone
+from datetime import datetime
 
 import requests
 from dotenv import load_dotenv
 
-from api import get_cookiejar
+from api import UNLOCK_TZ, get_cookiejar
 
 load_dotenv()
 
@@ -38,17 +38,17 @@ if ERR or HELP:
     print_help()
     exit(ERR)
 
-TODAY = datetime.now(timezone(timedelta(hours=-5))).date()
+TODAY = datetime.now(UNLOCK_TZ).date()
 if len(sys.argv) >= 3:
-    YEAR = int(sys.argv[1])
+    year = int(sys.argv[1])
 else:
-    YEAR = TODAY.year
+    year = TODAY.year
     if TODAY.month < 12:
-        YEAR -= 1  # assume we want the previous christmas
+        year -= 1  # assume we want the previous christmas
 if len(sys.argv) >= 2:
-    DAY = int(sys.argv[-1])
+    day = int(sys.argv[-1])
 elif TODAY.month == 12 and TODAY.day <= 25:
-    DAY = TODAY.day
+    day = TODAY.day
 else:
     print("DAY is only optional in December, when it can be inferred", file=sys.stderr)
     print_help()
@@ -56,5 +56,5 @@ else:
 
 
 with os.fdopen(sys.stdout.fileno(), "wb", closefd=False) as f:
-    f.write(get_input(YEAR, DAY))
+    f.write(get_input(year, day))
     f.flush()
