@@ -154,3 +154,5 @@ class ApiLeaderboard(TypedDict):
     event: Event
     owner_id: UserId
     members: Dict[UserId, ApiLeaderboardUser]
+    num_days: int
+    day1_ts: UnixTimestamp

@@ -13,7 +13,7 @@ from dotenv import load_dotenv
 from api import get_cookiejar
 from api.api import LeaderboardYear, LeaderboardYearMember
 from api.pretty import Length, iter_years, pretty_print_leaderboard, pretty_print_years
-from api.types import ALL_DAYS, Day, Event, Part, UserId, to_event, to_user_id
+from api.types import Day, Event, Part, UserId, to_event, to_user_id
 
 load_dotenv()
 
@@ -251,8 +251,9 @@ def main_timeline_events(leaderboard: UserId, year: Event) -> set[TimelineEvent]
     lb.fetch(COOKIEJAR)
     events: set[TimelineEvent] = set()
     for member in lb.members.values():
-        for dayi in ALL_DAYS:
-            day = member.days.get_day(dayi)
+        memberdays = member.days
+        for dayi in memberdays.iter_days():
+            day = memberdays.get_day(dayi)
             for part, dt in day.items():
                 if isinstance(dt, datetime):
                     events.add(

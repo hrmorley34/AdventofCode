@@ -5,7 +5,7 @@ from datetime import datetime
 import requests
 from dotenv import load_dotenv
 
-from api import UNLOCK_TZ, get_cookiejar
+from api import UNLOCK_TZ_GUESS, get_cookiejar, get_day_count_guess
 
 load_dotenv()
 
@@ -38,7 +38,7 @@ if ERR or HELP:
     print_help()
     exit(ERR)
 
-TODAY = datetime.now(UNLOCK_TZ).date()
+TODAY = datetime.now(UNLOCK_TZ_GUESS).date()
 if len(sys.argv) >= 3:
     year = int(sys.argv[1])
 else:
@@ -47,7 +47,7 @@ else:
         year -= 1  # assume we want the previous christmas
 if len(sys.argv) >= 2:
     day = int(sys.argv[-1])
-elif TODAY.month == 12 and TODAY.day <= 25:
+elif TODAY.month == 12 and TODAY.day <= get_day_count_guess(year):
     day = TODAY.day
 else:
     print("DAY is only optional in December, when it can be inferred", file=sys.stderr)

@@ -4,12 +4,14 @@ import collections.abc
 from datetime import datetime, timedelta, timezone
 from typing import (
     Any,
+    ClassVar,
     Dict,
     Generator,
     List,
     Literal,
     MutableMapping,
     Optional,
+    Sequence,
     Tuple,
     Union,
     overload,
@@ -98,10 +100,30 @@ class LeaderboardYear:
             for json in self.json["members"].values()
         }
 
+    @property
+    def day_count(self) -> int:
+        if self.json is None:
+            raise Missing
+            return get_day_count_guess(self.event)
+        return self.json["num_days"]
+
+    @property
+    def day1_unlock_time(self) -> datetime:
+        if self.json is None:
+            raise Missing
+            return datetime(int(self.event), 12, 1, 0, tzinfo=UNLOCK_TZ_GUESS)
+        return datetime.fromtimestamp(self.json["day1_ts"], timezone.utc)
+
+    def day_unlock_time(self, day: AnyDay) -> datetime:
+        return self.day1_unlock_time + timedelta(days=1) * (int(day) - 1)
+
+    def is_day_unlocked(self, day: AnyDay) -> bool:
+        return self.day_unlock_time(day) <= datetime.now(timezone.utc)
+
 
 class LeaderboardYearMember:
-    _YEARMEMBEROBJECTS: MutableMapping[
-        tuple[LeaderboardYear, UserId], LeaderboardYearMember
+    _YEARMEMBEROBJECTS: ClassVar[
+        MutableMapping[tuple[LeaderboardYear, UserId], LeaderboardYearMember]
     ] = WeakValueDictionary()
     id: UserId
     leaderboardyear: LeaderboardYear
@@ -183,29 +205,51 @@ class LeaderboardYearMember:
     def days(self) -> MemberDays:
         if self.json is None:
             raise Missing
-        return MemberDays(
-            self.id, self.leaderboardyear.event, self.json["completion_day_level"]
-        )
+        return MemberDays(self)
 
 
 DT_F_N = Union[datetime, Literal[False], None]
 
 
-class MemberDays:
-    id: UserId
-    year: Event
-    json: Optional[ApiLeaderboardDayDict] = None
+def restrict_int(
+    value: Any,
+    default: int | None = None,
+    minimum: int | None = None,
+    maximum: int | None = None,
+) -> int:
+    if value is None and default is not None:
+        return default
+    result = int(value)
+    if minimum is not None and result < minimum:
+        return minimum
+    if maximum is not None and result > maximum:
+        return maximum
+    return result
 
-    def __init__(
-        self,
-        id: AnyUserId,
-        year: AnyEvent,
-        json: Optional[ApiLeaderboardDayDict] = None,
-    ):
-        self.id = to_user_id(id)
-        self.year = to_event(year)
-        if json is not None:
-            self.json = json
+
+class MemberDays:
+    lym: LeaderboardYearMember
+
+    @property
+    def ly(self) -> LeaderboardYear:
+        return self.lym.leaderboardyear
+
+    @property
+    def id(self) -> UserId:
+        return self.lym.id
+
+    @property
+    def year(self) -> Event:
+        return self.ly.event
+
+    @property
+    def json(self) -> ApiLeaderboardDayDict | None:
+        if self.lym.json is None:
+            return None
+        return self.lym.json["completion_day_level"]
+
+    def __init__(self, lym: LeaderboardYearMember):
+        self.lym = lym
 
     def __repr__(self):
         return "MemberDays({}, year={})".format(self.id, self.year)
@@ -231,13 +275,17 @@ class MemberDays:
         if isinstance(obj, slice):
             # slightly imperfect
             if obj.step and obj.step < 0:
-                start = min(int(obj.start or 25), 25)
-                stop = max(int(obj.stop or 0), 0)
-                step = -max(abs(int(obj.step or 1)), 1)
+                start = restrict_int(
+                    obj.start, self.ly.day_count, maximum=self.ly.day_count
+                )
+                stop = restrict_int(obj.stop, 0, minimum=0)
+                step = -max(abs(restrict_int(obj.step, 1)), 1)
             else:
-                start = max(int(obj.start or 1), 1)
-                stop = min(int(obj.stop or 26), 26)
-                step = max(int(obj.step or 1), 1)
+                start = restrict_int(obj.start, 1, minimum=1)
+                stop = restrict_int(
+                    obj.stop, self.ly.day_count + 1, maximum=self.ly.day_count + 1
+                )
+                step = restrict_int(obj.step, 1, minimum=1)
             return [self.get_day(i) for i in range(start, stop, step)]
 
         day: Day
@@ -270,7 +318,7 @@ class MemberDays:
             raise Missing
         day = to_day(day)
 
-        if not is_day_unlocked(self.year, day):
+        if not self.ly.is_day_unlocked(day):
             default = None
         else:
             default = False
@@ -294,7 +342,7 @@ class MemberDays:
         day = to_day(day)
         part = to_part(part)
 
-        if is_day_unlocked(self.year, day):
+        if self.ly.is_day_unlocked(day):
             default = False
         else:
             default = None
@@ -306,22 +354,29 @@ class MemberDays:
             return datetime.fromtimestamp(ts, timezone.utc)
 
     def __iter__(self) -> Generator[Dict[Part, DT_F_N], None, None]:
-        for d in ALL_DAYS:
+        for d in self.iter_days():
             yield self.get_day(d)
 
     def to_dict(self) -> Dict[Day, Dict[Part, DT_F_N]]:
-        return {d: self.get_day(d) for d in ALL_DAYS}
+        return {d: self.get_day(d) for d in self.iter_days()}
+
+    def iter_days(self) -> Sequence[Day]:
+        return ALL_DAYS[: self.ly.day_count]
 
 
-UNLOCK_TZ = timezone(timedelta(hours=-5))
+UNLOCK_TZ_GUESS = timezone(timedelta(hours=-5))
 
 
-def get_unlock_time(year: AnyEvent, day: AnyDay) -> datetime:
-    return datetime(int(year), 12, to_day_int(day), 0, tzinfo=UNLOCK_TZ)
+def get_unlock_time_guess(year: AnyEvent, day: AnyDay) -> datetime:
+    return datetime(int(year), 12, to_day_int(day), 0, tzinfo=UNLOCK_TZ_GUESS)
 
 
-def is_day_unlocked(year: AnyEvent, day: AnyDay) -> bool:
-    return get_unlock_time(year, day) <= datetime.now(UNLOCK_TZ)
+def is_day_unlocked_guess(year: AnyEvent, day: AnyDay) -> bool:
+    return get_unlock_time_guess(year, day) <= datetime.now(UNLOCK_TZ_GUESS)
+
+
+def get_day_count_guess(year: AnyEvent) -> int:
+    return 25 if int(year) < 2025 else 12
 
 
 def get_cookiejar(session_id: str) -> RequestsCookieJar:

@@ -7,13 +7,12 @@ from typing import Generator
 from requests.cookies import RequestsCookieJar
 
 from .api import (
-    UNLOCK_TZ,
     LeaderboardYear,
     LeaderboardYearMember,
     MemberDays,
-    is_day_unlocked,
+    get_day_count_guess,
 )
-from .types import ALL_DAYS, ALL_PARTS, Event, UserId, to_event
+from .types import ALL_PARTS, Event, UserId, to_event
 
 
 class Length(Enum):
@@ -45,8 +44,8 @@ def starstext(memberdays: MemberDays, colours: bool = False, short: bool = True)
     outstr = ""
     lastcolour = None
 
-    for day in ALL_DAYS:
-        if not is_day_unlocked(memberdays.year, day):
+    for day in memberdays.iter_days():
+        if not memberdays.ly.is_day_unlocked(day):
             if lastcolour != clocked:
                 outstr += clocked[0]
                 lastcolour = clocked
@@ -97,10 +96,10 @@ def leaderboard_line_pprint(
 
 def iter_years(until: date | None = None) -> Generator[Event, None, None]:
     if until is None:
-        until = datetime.now(UNLOCK_TZ).date()
+        until = datetime.today()
     for iyear in range(2015, until.year):
         yield to_event(iyear)
-    if until.month >= 12:
+    if until.month >= 11:
         yield to_event(until.year)
 
 
@@ -119,9 +118,11 @@ def pretty_print_years(
     if ly.fetch(cookiejar) is None:
         if show_missing:
             if length == Length.short:
-                print("{:04} [{}]".format(year, "missing".center(25)))
+                width = get_day_count_guess(year)
+                print("{:04} [{}]".format(year, "missing".center(width)))
             elif length == Length.long:
-                print("{:04} [{}]".format(year, "missing".center(50)))
+                width = get_day_count_guess(year) * 2
+                print("{:04} [{}]".format(year, "missing".center(width)))
             else:
                 print("{:04} [{}]".format(year, "gone".center(4)))
         return False
