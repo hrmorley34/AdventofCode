@@ -239,6 +239,7 @@ class TimelineEvent:
     member: LeaderboardYearMember
     day: Day
     part: Part
+    is_final_part: bool
 
     @property
     def localtime(self) -> datetime:
@@ -257,7 +258,13 @@ def main_timeline_events(leaderboard: UserId, year: Event) -> set[TimelineEvent]
             for part, dt in day.items():
                 if isinstance(dt, datetime):
                     events.add(
-                        TimelineEvent(time=dt, member=member, day=dayi, part=part)
+                        TimelineEvent(
+                            time=dt,
+                            member=member,
+                            day=dayi,
+                            part=part,
+                            is_final_part=(dayi == str(lb.day_count) and part == "2"),
+                        )
                     )
     return events
 
@@ -307,7 +314,7 @@ def main_timeline_row(
             s += e.member.leaderboardyear.event.rjust(4) + "."
         s += e.day.rjust(2, " ") + "." + e.part
     s += " "
-    colour_name = colour and (e.day, e.part) == ("25", "2")
+    colour_name = colour and e.is_final_part
     if colour_name:
         s += colorama.Fore.LIGHTYELLOW_EX
     s += e.member.full_name
